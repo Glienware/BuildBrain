@@ -810,9 +810,13 @@ class NewProjectWizard:
         projects_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "projects")
         os.makedirs(projects_dir, exist_ok=True)
 
+        project_name = self.project_data['project_name']
+        project_dir = os.path.join(projects_dir, project_name)
+        os.makedirs(project_dir, exist_ok=True)
+
         # Generate filename
-        filename = f"{self.project_data['project_name'].replace(' ', '_')}.buildb"
-        filepath = os.path.join(projects_dir, filename)
+        filename = f"{project_name}.buildb"
+        filepath = os.path.join(project_dir, filename)
 
         # Update timestamps
         self.project_data["last_modified"] = datetime.now().isoformat()
@@ -820,10 +824,43 @@ class NewProjectWizard:
         # Save dataset information if available
         if hasattr(self, 'dataset_uploader'):
             dataset_info = self.dataset_uploader.get_dataset_info()
-            self.project_data["dataset"] = dataset_info
+            # Copy images to project dataset folder
+            copied_dataset = self._copy_dataset_to_project(dataset_info, project_dir)
+            self.project_data["dataset"] = copied_dataset
 
         # Save to JSON file
         with open(filepath, 'w') as f:
             json.dump(self.project_data, f, indent=2)
 
         self._add_log(f"Project saved to {filename}")
+
+    def _copy_dataset_to_project(self, dataset_info, project_dir):
+        """Copy dataset images to project folder and return updated dataset info."""
+        import shutil
+
+        dataset_dir = os.path.join(project_dir, "dataset")
+        copied_dataset = {"classes": {}, "total_images": 0, "num_classes": 0}
+
+        for class_name, image_paths in dataset_info.get("classes", {}).items():
+            class_dir = os.path.join(dataset_dir, class_name)
+            os.makedirs(class_dir, exist_ok=True)
+            copied_paths = []
+
+            for src_path in image_paths:
+                if os.path.exists(src_path):
+                    filename = os.path.basename(src_path)
+                    dst_path = os.path.join(class_dir, filename)
+                    try:
+                        shutil.copy2(src_path, dst_path)
+                        copied_paths.append(dst_path)
+                    except Exception as e:
+                        self._add_log(f"Error copying {src_path}: {e}")
+                else:
+                    self._add_log(f"Source image not found: {src_path}")
+
+            copied_dataset["classes"][class_name] = copied_paths
+
+        copied_dataset["total_images"] = sum(len(paths) for paths in copied_dataset["classes"].values())
+        copied_dataset["num_classes"] = len(copied_dataset["classes"])
+
+        return copied_dataset

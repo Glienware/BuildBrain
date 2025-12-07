@@ -244,5 +244,16 @@ class DatasetUploader:
         if dataset_info and 'classes' in dataset_info:
             self.classes = dataset_info['classes']
             self.update_class_cards()
-            # Always update the page when loading dataset info
-            self.page.update()
+            if self.on_update:
+                self.on_update()
+            else:
+                self.page.update()
+
+    def get_dataset_info(self):
+        """Get information about the current dataset."""
+        total_images = sum(len(images) for images in self.classes.values())
+        return {
+            "classes": self.classes,
+            "total_images": total_images,
+            "num_classes": len(self.classes)
+        }

@@ -28,15 +28,18 @@ class WelcomeScreen:
         """Load recent projects from projects directory."""
         projects = []
         if os.path.exists(self.projects_dir):
-            for filename in os.listdir(self.projects_dir):
-                if filename.endswith('.buildb'):
-                    try:
-                        with open(os.path.join(self.projects_dir, filename), 'r') as f:
-                            project_data = json.load(f)
-                            project_data['filename'] = filename
-                            projects.append(project_data)
-                    except:
-                        pass
+            for item in os.listdir(self.projects_dir):
+                item_path = os.path.join(self.projects_dir, item)
+                if os.path.isdir(item_path):
+                    buildb_file = os.path.join(item_path, f"{item}.buildb")
+                    if os.path.exists(buildb_file):
+                        try:
+                            with open(buildb_file, 'r') as f:
+                                project_data = json.load(f)
+                                project_data['filename'] = f"{item}.buildb"
+                                projects.append(project_data)
+                        except:
+                            pass
 
         # Sort by last modified date
         projects.sort(key=lambda x: x.get('last_modified', ''), reverse=True)

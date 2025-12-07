@@ -225,5 +225,4 @@ def get_model(model_name, num_classes=10, input_size=None):
             raise ValueError("input_size required for MLP model")
         return SimpleMLP(input_size, num_classes)
     else:
-        raise ValueError(f"Unknown model: {model_name}")</content>
-<parameter name="filePath">c:\Users\INICIO\Downloads\BuildBrain\src\training\models.py
+        raise ValueError(f"Unknown model: {model_name}")
