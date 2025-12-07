@@ -1,0 +1,17 @@
+{
+    "app_title": "Entrenador IA/ML",
+    "task_type": "Tipo de Tarea",
+    "classification": "Clasificación",
+    "regression": "Regresión",
+    "select_model": "Seleccionar Modelo",
+    "training_settings": "Configuraciones de Entrenamiento",
+    "dataset_upload": "Subida de Dataset",
+    "training_controls": "Controles de Entrenamiento",
+    "quick_train": "Entrenamiento Rápido",
+    "advanced_train": "Entrenamiento Avanzado",
+    "logs_visualization": "Registros y Visualización de Entrenamiento",
+    "class_labels": "Etiquetas de Clase (Clasificación)",
+    "add_class": "Agregar Clase",
+    "remove": "Remover",
+    "select_dataset": "Seleccionar Dataset"
+}

@@ -1,0 +1,17 @@
+{
+    "app_title": "AI/ML Trainer",
+    "task_type": "Task Type",
+    "classification": "Classification",
+    "regression": "Regression",
+    "select_model": "Select Model",
+    "training_settings": "Training Settings",
+    "dataset_upload": "Dataset Upload",
+    "training_controls": "Training Controls",
+    "quick_train": "Quick Train",
+    "advanced_train": "Advanced Train",
+    "logs_visualization": "Training Logs & Visualization",
+    "class_labels": "Class Labels (Classification)",
+    "add_class": "Add Class",
+    "remove": "Remove",
+    "select_dataset": "Select Dataset"
+}
