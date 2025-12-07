@@ -121,6 +121,27 @@ class AndroidStyleMainWindow:
         self.folder_picker = ft.FilePicker(on_result=on_folder_result)
         self.page.overlay.append(self.folder_picker)
         
+        # Initialize model picker for test tab
+        def on_model_result(e: ft.FilePickerResultEvent):
+            if e.files and len(e.files) > 0:
+                model_path = e.files[0].path
+                if model_path.endswith('.plt'):
+                    self._load_model_for_testing(model_path)
+                else:
+                    self._show_snackbar("❌ Solo se aceptan archivos .plt", self.ERROR_COLOR)
+        
+        self.model_picker = ft.FilePicker(on_result=on_model_result)
+        self.page.overlay.append(self.model_picker)
+        
+        # Initialize image picker for test tab predictions
+        def on_test_image_result(e: ft.FilePickerResultEvent):
+            if e.files and len(e.files) > 0:
+                image_path = e.files[0].path
+                self._test_model_with_image(image_path)
+        
+        self.test_image_picker = ft.FilePicker(on_result=on_test_image_result)
+        self.page.overlay.append(self.test_image_picker)
+        
         # Initialize form fields for add class
         self.class_name_field = ft.TextField(
             label="Nombre de la clase",
@@ -246,6 +267,11 @@ class AndroidStyleMainWindow:
                     text="Entrenamiento",
                     icon=ft.Icons.PLAY_ARROW,
                     content=self._create_training_tab()
+                ),
+                ft.Tab(
+                    text="Test",
+                    icon=ft.Icons.CODE,
+                    content=self._create_test_tab()
                 ),
             ],
             expand=True,
@@ -722,6 +748,129 @@ class AndroidStyleMainWindow:
             elevation=2
         )
 
+    def _create_test_tab(self) -> ft.Container:
+        """Create test tab content for model inference."""
+        # Store references for test tab
+        self.test_model_loaded = False
+        self.test_model_path = None
+        self.test_model_label = ft.Text("No hay modelo cargado", size=14, color=self.TEXT_SECONDARY)
+        self.test_image_label = ft.Text("Selecciona una imagen", size=14, color=self.TEXT_SECONDARY)
+        self.test_result_container = ft.Column(spacing=10)
+        self.test_image_display = ft.Container(height=250, bgcolor=self.SURFACE_COLOR, border_radius=8, alignment=ft.alignment.center)
+        
+        def on_load_model(e):
+            self.model_picker.pick_files(
+                allowed_extensions=["plt"]
+            )
+        
+        def on_select_test_image(e):
+            if not self.test_model_loaded:
+                self._show_snackbar("⚠️ Carga un modelo primero", self.ERROR_COLOR)
+                return
+            self.test_image_picker.pick_files(
+                allowed_extensions=["jpg", "jpeg", "png", "bmp", "tiff", "webp"]
+            )
+        
+        def on_clear_test(e):
+            self.test_model_loaded = False
+            self.test_model_path = None
+            self.test_model_label.value = "No hay modelo cargado"
+            self.test_image_label.value = "Selecciona una imagen"
+            self.test_result_container.controls.clear()
+            self.test_image_display.content = None
+            self.page.update()
+        
+        # Header
+        header = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.CODE, color=self.PRIMARY_COLOR, size=28),
+                ft.Text("Prueba del Modelo", size=20, weight=ft.FontWeight.BOLD),
+            ]),
+            margin=ft.margin.only(bottom=20)
+        )
+        
+        # Model loading section
+        model_section = ft.Container(
+            content=ft.Column([
+                ft.Text("1. Cargar Modelo", size=16, weight=ft.FontWeight.BOLD),
+                ft.Container(height=10),
+                ft.Row([
+                    ft.ElevatedButton(
+                        "Cargar Modelo (.plt)",
+                        icon=ft.Icons.UPLOAD_FILE,
+                        on_click=on_load_model,
+                        style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY),
+                        width=200
+                    ),
+                    ft.Container(width=20),
+                    self.test_model_label,
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ]),
+            bgcolor=self.SURFACE_COLOR,
+            padding=20,
+            border_radius=8,
+            margin=ft.margin.only(bottom=20)
+        )
+        
+        # Image selection section
+        image_section = ft.Container(
+            content=ft.Column([
+                ft.Text("2. Seleccionar Imagen", size=16, weight=ft.FontWeight.BOLD),
+                ft.Container(height=10),
+                ft.Row([
+                    ft.ElevatedButton(
+                        "Seleccionar Imagen",
+                        icon=ft.Icons.IMAGE_SEARCH,
+                        on_click=on_select_test_image,
+                        style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY),
+                        width=200
+                    ),
+                    ft.Container(width=20),
+                    self.test_image_label,
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Container(height=15),
+                self.test_image_display,
+            ]),
+            bgcolor=self.SURFACE_COLOR,
+            padding=20,
+            border_radius=8,
+            margin=ft.margin.only(bottom=20)
+        )
+        
+        # Results section
+        results_section = ft.Container(
+            content=ft.Column([
+                ft.Text("3. Resultados", size=16, weight=ft.FontWeight.BOLD),
+                ft.Container(height=10),
+                self.test_result_container,
+            ]),
+            bgcolor=self.SURFACE_COLOR,
+            padding=20,
+            border_radius=8,
+            margin=ft.margin.only(bottom=20)
+        )
+        
+        # Action buttons
+        action_buttons = ft.Row([
+            ft.ElevatedButton(
+                "Limpiar",
+                icon=ft.Icons.DELETE,
+                on_click=on_clear_test,
+                style=ft.ButtonStyle(bgcolor=self.ERROR_COLOR, color=self.TEXT_PRIMARY)
+            ),
+        ], spacing=10)
+        
+        return ft.Container(
+            content=ft.Column([
+                header,
+                model_section,
+                image_section,
+                results_section,
+                action_buttons,
+            ], scroll=ft.ScrollMode.AUTO, spacing=0),
+            padding=20
+        )
+
     def build(self) -> ft.Container:
         """Build the complete main window."""
         return ft.Container(
@@ -1145,4 +1294,133 @@ class AndroidStyleMainWindow:
         self.status_bar.content.controls[2].value = (
             f"Última modificación: {project_info['last_modified'][:19]}"
         )
+        self.page.update()
+
+    def _load_model_for_testing(self, model_path: str):
+        """Load a model for testing."""
+        try:
+            if self.trainer.load_model(model_path):
+                self.test_model_loaded = True
+                self.test_model_path = model_path
+                model_name = os.path.basename(model_path)
+                self.test_model_label.value = f"✅ {model_name}"
+                self.test_model_label.color = self.SUCCESS_COLOR
+                self._show_snackbar(f"✅ Modelo cargado: {model_name}", self.SUCCESS_COLOR)
+            else:
+                self.test_model_label.value = "❌ Error al cargar modelo"
+                self.test_model_label.color = self.ERROR_COLOR
+                self._show_snackbar("❌ Error al cargar modelo", self.ERROR_COLOR)
+        except Exception as e:
+            self.test_model_label.value = "❌ Error"
+            self.test_model_label.color = self.ERROR_COLOR
+            self._show_snackbar(f"❌ Error: {str(e)}", self.ERROR_COLOR)
+        
+        self.page.update()
+
+    def _test_model_with_image(self, image_path: str):
+        """Test the model with a selected image."""
+        try:
+            if not self.test_model_loaded:
+                self._show_snackbar("⚠️ Carga un modelo primero", self.ERROR_COLOR)
+                return
+            
+            if not os.path.exists(image_path):
+                self._show_snackbar("❌ Archivo de imagen no encontrado", self.ERROR_COLOR)
+                return
+            
+            # Update image display
+            self.test_image_label.value = f"✅ {os.path.basename(image_path)}"
+            self.test_image_label.color = self.SUCCESS_COLOR
+            
+            # Display the image
+            try:
+                self.test_image_display.content = ft.Image(
+                    src=image_path,
+                    width=250,
+                    height=250,
+                    fit=ft.ImageFit.CONTAIN
+                )
+            except:
+                self.test_image_display.content = ft.Text("No se pudo mostrar la imagen", color=self.TEXT_SECONDARY)
+            
+            # Run prediction
+            predicted_class, confidence, class_probs = self.trainer.predict_image(image_path)
+            
+            # Clear previous results
+            self.test_result_container.controls.clear()
+            
+            if predicted_class == "Error":
+                self.test_result_container.controls.append(
+                    ft.Text("❌ Error en la predicción", color=self.ERROR_COLOR, size=14)
+                )
+            else:
+                # Add prediction result
+                result_box = ft.Container(
+                    content=ft.Column([
+                        ft.Row([
+                            ft.Text("Predicción:", size=14, weight=ft.FontWeight.BOLD),
+                            ft.Text(predicted_class, size=14, color=self.PRIMARY_COLOR, weight=ft.FontWeight.BOLD),
+                        ]),
+                        ft.Row([
+                            ft.Text("Confianza:", size=14, weight=ft.FontWeight.BOLD),
+                            ft.Text(f"{confidence:.2%}", size=14, color=self.SECONDARY_COLOR, weight=ft.FontWeight.BOLD),
+                        ]),
+                    ]),
+                    bgcolor=self.SURFACE_COLOR,
+                    padding=15,
+                    border_radius=8
+                )
+                self.test_result_container.controls.append(result_box)
+                
+                # Add class probabilities
+                if class_probs:
+                    self.test_result_container.controls.append(
+                        ft.Text("Probabilidades por clase:", size=12, weight=ft.FontWeight.BOLD, color=self.TEXT_SECONDARY)
+                    )
+                    
+                    # Sort probabilities in descending order
+                    sorted_probs = sorted(class_probs.items(), key=lambda x: x[1], reverse=True)
+                    
+                    for class_name, prob in sorted_probs:
+                        # Color based on value
+                        if class_name == predicted_class:
+                            color = self.PRIMARY_COLOR
+                            bg_color = self.SURFACE_COLOR
+                        else:
+                            color = self.TEXT_PRIMARY
+                            bg_color = self.BACKGROUND_LIGHT
+                        
+                        # Progress bar for probability
+                        prob_item = ft.Container(
+                            content=ft.Row([
+                                ft.Text(class_name, size=12, width=100, color=color),
+                                ft.Container(
+                                    content=ft.Row([
+                                        ft.Container(
+                                            height=20,
+                                            width=int(prob * 200),
+                                            bgcolor=self.PRIMARY_COLOR if class_name == predicted_class else self.SECONDARY_COLOR,
+                                            border_radius=4
+                                        ),
+                                    ]),
+                                    width=200,
+                                    height=20,
+                                    bgcolor=self.BACKGROUND_LIGHT,
+                                    border_radius=4,
+                                    padding=2
+                                ),
+                                ft.Text(f"{prob:.2%}", size=12, width=60, text_align=ft.TextAlign.RIGHT, color=color),
+                            ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                            bgcolor=bg_color,
+                            padding=8,
+                            border_radius=4,
+                            margin=ft.margin.only(bottom=5)
+                        )
+                        self.test_result_container.controls.append(prob_item)
+            
+            self._show_snackbar("✅ Predicción completada", self.SUCCESS_COLOR)
+            
+        except Exception as e:
+            self._show_snackbar(f"❌ Error: {str(e)}", self.ERROR_COLOR)
+        
         self.page.update()

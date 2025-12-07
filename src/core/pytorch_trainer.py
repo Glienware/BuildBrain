@@ -369,6 +369,86 @@ class PyTorchTrainer:
         self.is_training = False
         self.log_callback("🛑 Training stopped by user")
 
+    def load_model(self, model_path: str) -> bool:
+        """Load a trained model from file."""
+        try:
+            if not os.path.exists(model_path):
+                self.log_callback(f"❌ Model file not found: {model_path}")
+                return False
+            
+            checkpoint = torch.load(model_path, map_location=self.device)
+            
+            # Load dataset to get number of classes and class names
+            dataset = ImageDataset(self.dataset_path, transform=self._get_transforms()[0])
+            num_classes = len(dataset.classes)
+            self.class_names = dataset.classes
+            
+            # Create and load model
+            self.model = SimpleCNN(num_classes).to(self.device)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.model.eval()
+            
+            self.log_callback(f"✅ Model loaded successfully from: {model_path}")
+            return True
+            
+        except Exception as e:
+            self.log_callback(f"❌ Error loading model: {str(e)}")
+            return False
+
+    def predict_image(self, image_path: str) -> Tuple[str, float, Dict[str, float]]:
+        """Predict class for a single image."""
+        try:
+            if self.model is None:
+                return "Error", 0.0, {}
+            
+            if not os.path.exists(image_path):
+                return "Error", 0.0, {}
+            
+            # Load and transform image
+            image = Image.open(image_path).convert('RGB')
+            transform = self._get_transforms()[0]
+            image_tensor = transform(image).unsqueeze(0).to(self.device)
+            
+            # Get prediction
+            with torch.no_grad():
+                outputs = self.model(image_tensor)
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                confidence, predicted_class = torch.max(probabilities, 1)
+                
+            predicted_label = self.class_names[predicted_class.item()]
+            confidence_value = confidence.item()
+            
+            # Get all class probabilities
+            class_probs = {}
+            for i, class_name in enumerate(self.class_names):
+                class_probs[class_name] = probabilities[0][i].item()
+            
+            return predicted_label, confidence_value, class_probs
+            
+        except Exception as e:
+            self.log_callback(f"❌ Error predicting image: {str(e)}")
+            return "Error", 0.0, {}
+
+    def _get_transforms(self) -> Tuple[transforms.Compose, transforms.Compose]:
+        """Get image transforms."""
+        train_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(10),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                               std=[0.229, 0.224, 0.225])
+        ])
+        
+        val_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                               std=[0.229, 0.224, 0.225])
+        ])
+        
+        return train_transform, val_transform
+
     def _format_time(self, seconds: float) -> str:
         """Format seconds into human readable time."""
         hours, remainder = divmod(int(seconds), 3600)
