@@ -90,6 +90,37 @@ class AndroidStyleMainWindow:
         self.file_picker = ft.FilePicker(on_result=on_upload_result)
         self.page.overlay.append(self.file_picker)
         
+        # Initialize folder picker for uploads
+        def on_folder_result(e: ft.FilePickerResultEvent):
+            if e.path and hasattr(self, 'current_upload_class'):
+                # Get all image files from the selected folder
+                folder_path = e.path
+                image_extensions = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp")
+                
+                try:
+                    image_files = [
+                        os.path.join(folder_path, f) 
+                        for f in os.listdir(folder_path) 
+                        if os.path.isfile(os.path.join(folder_path, f)) and f.lower().endswith(image_extensions)
+                    ]
+                    
+                    if not image_files:
+                        self._show_snackbar(f"⚠️ No se encontraron imágenes en la carpeta", self.ERROR_COLOR)
+                        return
+                    
+                    success_count, error_count = self.dataset_manager.add_images_to_class(self.current_upload_class, image_files)
+                    
+                    if success_count > 0:
+                        self._update_classes_display()
+                        self._show_snackbar(f"✅ {success_count} imágenes agregadas desde carpeta", self.SUCCESS_COLOR)
+                    if error_count > 0:
+                        self._show_snackbar(f"⚠️ {error_count} archivos no válidos", self.ERROR_COLOR)
+                except Exception as ex:
+                    self._show_snackbar(f"❌ Error al leer carpeta: {str(ex)}", self.ERROR_COLOR)
+        
+        self.folder_picker = ft.FilePicker(on_result=on_folder_result)
+        self.page.overlay.append(self.folder_picker)
+        
         # Initialize form fields for add class
         self.class_name_field = ft.TextField(
             label="Nombre de la clase",
@@ -932,12 +963,89 @@ class AndroidStyleMainWindow:
         self.page.update()
 
     def _upload_images_to_class(self, class_name: str):
-        """Upload images - open file picker directly."""
+        """Upload images - show modal with 2 options."""
         self.current_upload_class = class_name
-        self.file_picker.pick_files(
-            allow_multiple=True,
-            allowed_extensions=["jpg", "jpeg", "png", "bmp", "tiff", "webp"]
+        
+        def close_modal(e=None):
+            for ctrl in self.page.overlay:
+                if isinstance(ctrl, ft.Container) and hasattr(ctrl, 'data') and ctrl.data == 'upload_modal':
+                    self.page.overlay.remove(ctrl)
+                    break
+            self.page.update()
+        
+        def on_pick_files(e):
+            close_modal()
+            self.file_picker.pick_files(
+                allow_multiple=True,
+                allowed_extensions=["jpg", "jpeg", "png", "bmp", "tiff", "webp"]
+            )
+        
+        def on_pick_folder(e):
+            close_modal()
+            self.folder_picker.get_directory()
+        
+        # Create buttons
+        btn_files = ft.ElevatedButton(
+            "Subir Imágenes",
+            icon=ft.Icons.IMAGE,
+            on_click=on_pick_files,
+            style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY),
+            width=250
         )
+        
+        btn_folder = ft.ElevatedButton(
+            "Subir Carpeta",
+            icon=ft.Icons.FOLDER,
+            on_click=on_pick_folder,
+            style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY),
+            width=250
+        )
+        
+        btn_cancel = ft.ElevatedButton(
+            "Cancelar",
+            on_click=close_modal,
+            style=ft.ButtonStyle(bgcolor="#666666"),
+            width=250
+        )
+        
+        # Modal content
+        modal = ft.Container(
+            content=ft.Column([
+                ft.Text(f"Subir imágenes a '{class_name}'", size=18, weight=ft.FontWeight.BOLD),
+                ft.Text("Elige cómo deseas agregar imágenes", size=12, color=self.TEXT_SECONDARY),
+                ft.Container(height=20),
+                btn_files,
+                ft.Container(height=10),
+                btn_folder,
+                ft.Container(height=20),
+                btn_cancel,
+            ], spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=self.SURFACE_COLOR,
+            padding=30,
+            border_radius=12,
+            width=350,
+            shadow=ft.BoxShadow(blur_radius=20, color="000000")
+        )
+        
+        overlay = ft.Container(
+            content=ft.Column([
+                ft.Container(expand=True),
+                ft.Row([
+                    ft.Container(expand=True),
+                    modal,
+                    ft.Container(expand=True)
+                ]),
+                ft.Container(expand=True)
+            ]),
+            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+            alignment=ft.alignment.center,
+            expand=True,
+            on_click=close_modal
+        )
+        overlay.data = 'upload_modal'
+        
+        self.page.overlay.append(overlay)
+        self.page.update()
 
     def _start_quick_training(self, e):
         """Start quick training."""
