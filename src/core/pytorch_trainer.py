@@ -16,7 +16,13 @@ import threading
 import time
 from typing import Dict, List, Callable, Optional, Any
 from datetime import datetime
-
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+plt.ioff()  # Turn off interactive mode
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, precision_score, recall_score, f1_score
+import json
 
 class ImageDataset(Dataset):
     """Custom dataset for image classification."""
@@ -109,6 +115,9 @@ class PyTorchTrainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.is_training = False
         self.training_thread = None
+        self.class_names = []
+        self.training_history = {}
+        self.final_metrics = None
 
         self.log_callback(f"Using device: {self.device}")
 
@@ -179,6 +188,9 @@ class PyTorchTrainer:
                 self.log_callback("❌ No images found in dataset")
                 return
 
+            # Store class names for later use
+            self.class_names = dataset.classes
+            
             self.log_callback(f"📊 Found {len(dataset)} images in {len(dataset.classes)} classes")
 
             # Split dataset
@@ -250,6 +262,14 @@ class PyTorchTrainer:
             patience = config.get("patience", 10)
             early_stopping = config.get("early_stopping", False)
             patience_counter = 0
+            
+            # Initialize history tracking
+            self.training_history = {
+                'train_loss': [],
+                'val_loss': [],
+                'train_acc': [],
+                'val_acc': []
+            }
 
             for epoch in range(config["epochs"]):
                 if not self.is_training:  # Allow stopping
@@ -260,6 +280,12 @@ class PyTorchTrainer:
 
                 # Validate epoch
                 val_loss, val_acc = self._validate_epoch(val_loader, self.model, criterion, self.device)
+
+                # Store in history
+                self.training_history['train_loss'].append(train_loss)
+                self.training_history['val_loss'].append(val_loss)
+                self.training_history['train_acc'].append(train_acc)
+                self.training_history['val_acc'].append(val_acc)
 
                 # Step scheduler
                 if scheduler:
@@ -294,6 +320,61 @@ class PyTorchTrainer:
             self._save_model()
             total_time = time.time() - start_time
 
+            # Calculate final metrics
+            self.log_callback("📊 Calculando métricas finales...")
+            self.final_metrics = self.calculate_metrics(val_loader, self.model, self.device)
+            
+            # Generate report images
+            self.log_callback("🎨 Generando gráficas...")
+            metrics_dir = os.path.join(self.project_path, "training_reports")
+            os.makedirs(metrics_dir, exist_ok=True)
+            
+            # Generate confusion matrix
+            self.generate_confusion_matrix_image(
+                self.final_metrics,
+                os.path.join(metrics_dir, "confusion_matrix.png")
+            )
+            
+            # Generate metrics report
+            self.generate_metrics_report_image(
+                self.final_metrics,
+                os.path.join(metrics_dir, "metrics_report.png")
+            )
+            
+            # Generate training history
+            self.generate_training_history_image(
+                self.training_history,
+                os.path.join(metrics_dir, "training_history.png")
+            )
+            
+            # Save metrics as JSON
+            metrics_json_path = os.path.join(metrics_dir, "metrics.json")
+            try:
+                # Convert numpy types to native Python types for JSON serialization
+                class_report_serializable = {}
+                for key, value in self.final_metrics['class_report'].items():
+                    if isinstance(value, dict):
+                        class_report_serializable[key] = {
+                            k: float(v) if isinstance(v, (np.floating, float)) else int(v) if isinstance(v, (np.integer, int)) else v
+                            for k, v in value.items()
+                        }
+                    else:
+                        class_report_serializable[key] = float(value) if isinstance(value, (np.floating, float)) else int(value) if isinstance(value, (np.integer, int)) else value
+                
+                with open(metrics_json_path, 'w') as f:
+                    json.dump({
+                        'accuracy': float(self.final_metrics['accuracy']),
+                        'precision': float(self.final_metrics['precision']),
+                        'recall': float(self.final_metrics['recall']),
+                        'f1': float(self.final_metrics['f1']),
+                        'confusion_matrix': self.final_metrics['confusion_matrix'].tolist(),
+                        'class_report': class_report_serializable
+                    }, f, indent=4)
+                self.log_callback(f"💾 Métricas guardadas en: {metrics_json_path}")
+            except Exception as e:
+                self.log_callback(f"⚠️ Error guardando JSON de métricas: {str(e)}")
+
+            
             self.log_callback(
                 f"✅ Training completed! | Best Accuracy: {best_accuracy:.2%} | "
                 f"Total Time: {self._format_time(total_time)}"
@@ -350,6 +431,185 @@ class PyTorchTrainer:
                 correct += predicted.eq(labels).sum().item()
 
         return running_loss / len(loader), correct / total
+
+    def calculate_metrics(self, loader: DataLoader, model: nn.Module, device: torch.device) -> Dict[str, Any]:
+        """Calculate detailed metrics including confusion matrix."""
+        model.eval()
+        all_predictions = []
+        all_labels = []
+        
+        with torch.no_grad():
+            for inputs, labels in loader:
+                inputs, labels = inputs.to(device), labels.to(device)
+                outputs = model(inputs)
+                _, predicted = outputs.max(1)
+                
+                all_predictions.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+        
+        all_predictions = np.array(all_predictions)
+        all_labels = np.array(all_labels)
+        
+        # Calculate metrics
+        accuracy = accuracy_score(all_labels, all_predictions)
+        precision = precision_score(all_labels, all_predictions, average='weighted', zero_division=0)
+        recall = recall_score(all_labels, all_predictions, average='weighted', zero_division=0)
+        f1 = f1_score(all_labels, all_predictions, average='weighted', zero_division=0)
+        
+        # Confusion matrix
+        cm = confusion_matrix(all_labels, all_predictions)
+        
+        # Per-class metrics
+        class_report = classification_report(all_labels, all_predictions, 
+                                            target_names=self.class_names,
+                                            output_dict=True,
+                                            zero_division=0)
+        
+        return {
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'confusion_matrix': cm,
+            'class_report': class_report,
+            'predictions': all_predictions,
+            'labels': all_labels
+        }
+
+    def generate_confusion_matrix_image(self, metrics: Dict[str, Any], output_path: str) -> bool:
+        """Generate confusion matrix image."""
+        try:
+            cm = metrics['confusion_matrix']
+            
+            plt.figure(figsize=(12, 10))
+            
+            # Create heatmap
+            im = plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+            plt.title('Matriz de Confusión', fontsize=16, fontweight='bold')
+            plt.colorbar(im)
+            
+            # Set ticks
+            tick_marks = np.arange(len(self.class_names))
+            plt.xticks(tick_marks, self.class_names, rotation=45, ha='right')
+            plt.yticks(tick_marks, self.class_names)
+            
+            # Add text annotations
+            thresh = cm.max() / 2.
+            for i, j in np.ndindex(cm.shape):
+                plt.text(j, i, format(cm[i, j], 'd'),
+                        ha="center", va="center",
+                        color="white" if cm[i, j] > thresh else "black",
+                        fontsize=10)
+            
+            plt.ylabel('Etiqueta Real', fontsize=12)
+            plt.xlabel('Predicción', fontsize=12)
+            plt.tight_layout()
+            
+            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self.log_callback(f"✅ Matriz de confusión guardada en: {output_path}")
+            return True
+            
+        except Exception as e:
+            self.log_callback(f"❌ Error generando matriz de confusión: {str(e)}")
+            return False
+
+    def generate_metrics_report_image(self, metrics: Dict[str, Any], output_path: str) -> bool:
+        """Generate metrics report image."""
+        try:
+            fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+            fig.suptitle('Reporte de Métricas del Modelo', fontsize=16, fontweight='bold')
+            
+            # 1. Overall metrics
+            ax = axes[0, 0]
+            metrics_names = ['Accuracy', 'Precision', 'Recall', 'F1']
+            metrics_values = [metrics['accuracy'], metrics['precision'], metrics['recall'], metrics['f1']]
+            colors = ['#3DDC84', '#82B1FF', '#CF6679', '#FFB74D']
+            bars = ax.bar(metrics_names, metrics_values, color=colors)
+            ax.set_ylim(0, 1)
+            ax.set_ylabel('Score', fontsize=11)
+            ax.set_title('Métricas Generales', fontsize=12, fontweight='bold')
+            ax.grid(axis='y', alpha=0.3)
+            
+            # Add value labels on bars
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height,
+                       f'{height:.3f}', ha='center', va='bottom', fontsize=10)
+            
+            # 2. Per-class precision
+            ax = axes[0, 1]
+            class_names = self.class_names
+            precisions = [metrics['class_report'][name]['precision'] for name in class_names]
+            ax.barh(class_names, precisions, color='#82B1FF')
+            ax.set_xlim(0, 1)
+            ax.set_xlabel('Precision', fontsize=11)
+            ax.set_title('Precisión por Clase', fontsize=12, fontweight='bold')
+            ax.grid(axis='x', alpha=0.3)
+            
+            # 3. Per-class recall
+            ax = axes[1, 0]
+            recalls = [metrics['class_report'][name]['recall'] for name in class_names]
+            ax.barh(class_names, recalls, color='#CF6679')
+            ax.set_xlim(0, 1)
+            ax.set_xlabel('Recall', fontsize=11)
+            ax.set_title('Recall por Clase', fontsize=12, fontweight='bold')
+            ax.grid(axis='x', alpha=0.3)
+            
+            # 4. Per-class F1
+            ax = axes[1, 1]
+            f1_scores = [metrics['class_report'][name]['f1-score'] for name in class_names]
+            ax.barh(class_names, f1_scores, color='#FFB74D')
+            ax.set_xlim(0, 1)
+            ax.set_xlabel('F1-Score', fontsize=11)
+            ax.set_title('F1-Score por Clase', fontsize=12, fontweight='bold')
+            ax.grid(axis='x', alpha=0.3)
+            
+            plt.tight_layout()
+            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self.log_callback(f"✅ Reporte de métricas guardado en: {output_path}")
+            return True
+            
+        except Exception as e:
+            self.log_callback(f"❌ Error generando reporte de métricas: {str(e)}")
+            return False
+
+    def generate_training_history_image(self, history: Dict[str, List], output_path: str) -> bool:
+        """Generate training history plot."""
+        try:
+            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+            
+            # Loss plot
+            axes[0].plot(history['train_loss'], label='Train Loss', linewidth=2, marker='o', markersize=3)
+            axes[0].plot(history['val_loss'], label='Validation Loss', linewidth=2, marker='s', markersize=3)
+            axes[0].set_xlabel('Epoch', fontsize=11)
+            axes[0].set_ylabel('Loss', fontsize=11)
+            axes[0].set_title('Pérdida por Época', fontsize=12, fontweight='bold')
+            axes[0].legend()
+            axes[0].grid(True, alpha=0.3)
+            
+            # Accuracy plot
+            axes[1].plot(history['train_acc'], label='Train Accuracy', linewidth=2, marker='o', markersize=3)
+            axes[1].plot(history['val_acc'], label='Validation Accuracy', linewidth=2, marker='s', markersize=3)
+            axes[1].set_xlabel('Epoch', fontsize=11)
+            axes[1].set_ylabel('Accuracy', fontsize=11)
+            axes[1].set_title('Exactitud por Época', fontsize=12, fontweight='bold')
+            axes[1].legend()
+            axes[1].grid(True, alpha=0.3)
+            
+            plt.tight_layout()
+            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self.log_callback(f"✅ Gráfico de historial guardado en: {output_path}")
+            return True
+            
+        except Exception as e:
+            self.log_callback(f"❌ Error generando gráfico de historial: {str(e)}")
+            return False
 
     def _save_model(self):
         """Save the trained model."""

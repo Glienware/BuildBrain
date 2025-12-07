@@ -579,6 +579,9 @@ class AndroidStyleMainWindow:
             spacing=2
         )
 
+        # Metrics display
+        self.metrics_display = ft.Column(spacing=10, visible=False)
+
         # Progress indicators
         self.progress_bar = ft.ProgressBar(width=400, color=self.PRIMARY_COLOR, visible=False)
         self.progress_text = ft.Text("", size=14, color=self.TEXT_SECONDARY, visible=False)
@@ -606,6 +609,14 @@ class AndroidStyleMainWindow:
             on_click=self._stop_training,
             style=ft.ButtonStyle(bgcolor=self.ERROR_COLOR, color=self.TEXT_PRIMARY),
             visible=self.training_active
+        )
+        
+        self.download_metrics_btn = ft.ElevatedButton(
+            "Descargar Gráficas",
+            icon=ft.Icons.DOWNLOAD,
+            on_click=self._download_metrics,
+            style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY),
+            visible=False
         )
 
         return ft.Container(
@@ -639,12 +650,37 @@ class AndroidStyleMainWindow:
                     margin=ft.margin.only(bottom=20)
                 ),
 
+                # Metrics section
+                ft.Container(
+                    content=ft.Column([
+                        ft.Row([
+                            ft.Icon(ft.Icons.SHOW_CHART, color=self.PRIMARY_COLOR),
+                            ft.Text("Métricas del Modelo", size=16, weight=ft.FontWeight.BOLD),
+                        ]),
+                        ft.Container(height=10),
+                        self.metrics_display,
+                        ft.Container(height=10),
+                        self.download_metrics_btn,
+                    ]),
+                    bgcolor=self.SURFACE_COLOR,
+                    padding=20,
+                    border_radius=8,
+                    margin=ft.margin.only(bottom=20)
+                ),
+
                 # Logs console
                 ft.Container(
                     content=ft.Column([
                         ft.Row([
                             ft.Icon(ft.Icons.TERMINAL, color=self.TEXT_SECONDARY),
                             ft.Text("Consola de Logs", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Container(expand=True),
+                            ft.IconButton(
+                                ft.Icons.COPY,
+                                icon_color=self.PRIMARY_COLOR,
+                                tooltip="Copiar logs",
+                                on_click=self._copy_logs_to_clipboard
+                            ),
                         ]),
                         ft.Container(
                             content=self.logs_display,
@@ -1267,6 +1303,13 @@ class AndroidStyleMainWindow:
         if len(self.logs_display.controls) > 100:
             self.logs_display.controls.pop(0)
 
+        # Check if training completed
+        if "✅ Training completed" in message or "✅ Training completed!" in message:
+            self.training_active = False
+            self._update_training_buttons()
+            # Schedule metrics update for next frame
+            self.page.run_task(self._update_metrics_display)
+
         # Auto-scroll to bottom and update page only if control is added to page
         if hasattr(self.logs_display, 'page') and self.logs_display.page is not None:
             self.logs_display.scroll_to(offset=-1)
@@ -1424,3 +1467,256 @@ class AndroidStyleMainWindow:
             self._show_snackbar(f"❌ Error: {str(e)}", self.ERROR_COLOR)
         
         self.page.update()
+
+    def _update_metrics_display(self):
+        """Update metrics display after training completes."""
+        try:
+            if not hasattr(self.trainer, 'final_metrics') or self.trainer.final_metrics is None:
+                return
+            
+            metrics = self.trainer.final_metrics
+            
+            # Clear previous metrics
+            self.metrics_display.controls.clear()
+            
+            # Overall metrics in a grid
+            overall_metrics = ft.Container(
+                content=ft.Row([
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Exactitud", size=11, color=self.TEXT_SECONDARY),
+                            ft.Text(f"{metrics['accuracy']:.2%}", size=18, weight=ft.FontWeight.BOLD, color=self.PRIMARY_COLOR),
+                        ], spacing=5, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        bgcolor=self.BACKGROUND_LIGHT,
+                        padding=15,
+                        border_radius=8,
+                        expand=True
+                    ),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Precisión", size=11, color=self.TEXT_SECONDARY),
+                            ft.Text(f"{metrics['precision']:.2%}", size=18, weight=ft.FontWeight.BOLD, color=self.SECONDARY_COLOR),
+                        ], spacing=5, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        bgcolor=self.BACKGROUND_LIGHT,
+                        padding=15,
+                        border_radius=8,
+                        expand=True
+                    ),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Recall", size=11, color=self.TEXT_SECONDARY),
+                            ft.Text(f"{metrics['recall']:.2%}", size=18, weight=ft.FontWeight.BOLD, color="#FF9800"),
+                        ], spacing=5, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        bgcolor=self.BACKGROUND_LIGHT,
+                        padding=15,
+                        border_radius=8,
+                        expand=True
+                    ),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("F1-Score", size=11, color=self.TEXT_SECONDARY),
+                            ft.Text(f"{metrics['f1']:.2%}", size=18, weight=ft.FontWeight.BOLD, color=self.SUCCESS_COLOR),
+                        ], spacing=5, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        bgcolor=self.BACKGROUND_LIGHT,
+                        padding=15,
+                        border_radius=8,
+                        expand=True
+                    ),
+                ], spacing=10),
+                margin=ft.margin.only(bottom=15)
+            )
+            
+            self.metrics_display.controls.append(overall_metrics)
+            
+            # Per-class metrics
+            class_metrics = ft.Column([
+                ft.Text("Métricas por Clase", size=12, weight=ft.FontWeight.BOLD, color=self.TEXT_SECONDARY)
+            ], spacing=8)
+            
+            for class_name in self.trainer.class_names:
+                class_data = metrics['class_report'].get(class_name, {})
+                precision = class_data.get('precision', 0)
+                recall = class_data.get('recall', 0)
+                f1 = class_data.get('f1-score', 0)
+                support = class_data.get('support', 0)
+                
+                class_item = ft.Container(
+                    content=ft.Row([
+                        ft.Text(class_name, size=11, width=100),
+                        ft.Text(f"P: {precision:.2%}", size=11, width=80),
+                        ft.Text(f"R: {recall:.2%}", size=11, width=80),
+                        ft.Text(f"F1: {f1:.2%}", size=11, width=80),
+                        ft.Text(f"({int(support)})", size=11, color=self.TEXT_SECONDARY),
+                    ]),
+                    bgcolor=self.BACKGROUND_LIGHT,
+                    padding=8,
+                    border_radius=4
+                )
+                class_metrics.controls.append(class_item)
+            
+            self.metrics_display.controls.append(class_metrics)
+            
+            # Show download button
+            self.download_metrics_btn.visible = True
+            
+            # Show metrics section
+            self.metrics_display.visible = True
+            
+            self.page.update()
+            
+        except Exception as e:
+            self._show_snackbar(f"❌ Error mostrando métricas: {str(e)}", self.ERROR_COLOR)
+
+    def _download_metrics(self, e):
+        """Show available metrics files to download."""
+        try:
+            metrics_dir = os.path.join(self.project_path, "training_reports")
+            
+            if not os.path.exists(metrics_dir):
+                self._show_snackbar("❌ No hay reportes disponibles", self.ERROR_COLOR)
+                return
+            
+            # Create a modal to show available files
+            def close_modal(e=None):
+                for ctrl in self.page.overlay:
+                    if isinstance(ctrl, ft.Container) and hasattr(ctrl, 'data') and ctrl.data == 'download_modal':
+                        self.page.overlay.remove(ctrl)
+                        break
+                self.page.update()
+            
+            files_list = ft.Column(spacing=10)
+            
+            # Get all files in the metrics directory
+            for filename in os.listdir(metrics_dir):
+                file_path = os.path.join(metrics_dir, filename)
+                if os.path.isfile(file_path):
+                    file_size = os.path.getsize(file_path) / 1024  # KB
+                    
+                    def create_download_handler(path):
+                        def on_download(e):
+                            close_modal()
+                            self._copy_to_downloads(path, filename)
+                        return on_download
+                    
+                    file_item = ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.IMAGE if filename.endswith('.png') else ft.Icons.FILE_PRESENT),
+                            ft.Column([
+                                ft.Text(filename, size=12, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"{file_size:.1f} KB", size=10, color=self.TEXT_SECONDARY),
+                            ]),
+                            ft.Container(expand=True),
+                            ft.IconButton(
+                                ft.Icons.DOWNLOAD,
+                                icon_color=self.PRIMARY_COLOR,
+                                on_click=create_download_handler(file_path),
+                                tooltip="Descargar"
+                            ),
+                        ]),
+                        bgcolor=self.BACKGROUND_LIGHT,
+                        padding=12,
+                        border_radius=6
+                    )
+                    files_list.controls.append(file_item)
+            
+            # Create modal content
+            modal_content = ft.Container(
+                content=ft.Column([
+                    ft.Text("Archivos de Reporte", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Container(height=10),
+                    ft.Text(f"Se encontraron {len(os.listdir(metrics_dir))} archivo(s)", size=12, color=self.TEXT_SECONDARY),
+                    ft.Container(height=15),
+                    files_list,
+                    ft.Container(height=15),
+                    ft.ElevatedButton(
+                        "Cerrar",
+                        on_click=close_modal,
+                        style=ft.ButtonStyle(bgcolor="#666666"),
+                        width=200
+                    ),
+                ], spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                bgcolor=self.SURFACE_COLOR,
+                padding=30,
+                border_radius=12,
+                width=450,
+                shadow=ft.BoxShadow(blur_radius=20, color="000000")
+            )
+            
+            overlay = ft.Container(
+                content=ft.Column([
+                    ft.Container(expand=True),
+                    ft.Row([
+                        ft.Container(expand=True),
+                        modal_content,
+                        ft.Container(expand=True)
+                    ]),
+                    ft.Container(expand=True)
+                ]),
+                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+                alignment=ft.alignment.center,
+                expand=True,
+                on_click=close_modal
+            )
+            overlay.data = 'download_modal'
+            
+            self.page.overlay.append(overlay)
+            self.page.update()
+            
+        except Exception as ex:
+            self._show_snackbar(f"❌ Error: {str(ex)}", self.ERROR_COLOR)
+
+    def _copy_to_downloads(self, source_path: str, filename: str):
+        """Copy file to user's Downloads folder."""
+        try:
+            import shutil
+            from pathlib import Path
+            
+            
+            # Get Downloads folder
+            downloads_dir = str(Path.home() / "Downloads")
+            dest_path = os.path.join(downloads_dir, f"BuildBrain_{filename}")
+            
+            # Copy file
+            shutil.copy2(source_path, dest_path)
+            
+            self._show_snackbar(f"✅ Descargado: {dest_path}", self.SUCCESS_COLOR)
+            
+        except Exception as e:
+            self._show_snackbar(f"❌ Error descargando: {str(e)}", self.ERROR_COLOR)
+
+    def _copy_logs_to_clipboard(self, e):
+        """Copy all logs to clipboard."""
+        try:
+            # Collect all log messages
+            logs_text = ""
+            for log_entry in self.logs_display.controls:
+                if isinstance(log_entry, ft.Text):
+                    logs_text += log_entry.value + "\n"
+            
+            if not logs_text.strip():
+                self._show_snackbar("⚠️ No hay logs para copiar", self.ERROR_COLOR)
+                return
+            
+            # Copy to clipboard using pyperclip or built-in method
+            try:
+                import subprocess
+                process = subprocess.Popen(['clip'], stdin=subprocess.PIPE)
+                process.communicate(logs_text.encode('utf-8'))
+                self._show_snackbar(f"✅ {len(self.logs_display.controls)} líneas de logs copiadas", self.SUCCESS_COLOR)
+            except:
+                # Fallback: try using tkinter
+                try:
+                    import tkinter as tk
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.clipboard_clear()
+                    root.clipboard_append(logs_text)
+                    root.update()
+                    root.destroy()
+                    self._show_snackbar(f"✅ {len(self.logs_display.controls)} líneas de logs copiadas", self.SUCCESS_COLOR)
+                except:
+                    self._show_snackbar("❌ No se pudo copiar al portapapeles", self.ERROR_COLOR)
+            
+        except Exception as ex:
+            self._show_snackbar(f"❌ Error: {str(ex)}", self.ERROR_COLOR)
+
