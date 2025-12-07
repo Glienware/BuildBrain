@@ -42,6 +42,8 @@ class AndroidStyleMainWindow:
         self.logs_display = ft.Column(height=300, scroll=ft.ScrollMode.AUTO, spacing=2)
         self.training_active = False
         self.current_view_class = None
+        self.images_dialog = None  # Store dialog reference
+        self.upload_modal = None   # Store upload modal reference
 
         # Initialize core components
         self.project_config = ProjectConfig(project_path)
@@ -73,6 +75,21 @@ class AndroidStyleMainWindow:
 
     def _init_ui_components(self):
         """Initialize all UI components."""
+        # Initialize file picker for uploads
+        def on_upload_result(e: ft.FilePickerResultEvent):
+            if e.files and hasattr(self, 'current_upload_class'):
+                file_paths = [f.path for f in e.files]
+                success_count, error_count = self.dataset_manager.add_images_to_class(self.current_upload_class, file_paths)
+                
+                if success_count > 0:
+                    self._update_classes_display()
+                    self._show_snackbar(f"✅ {success_count} imágenes agregadas", self.SUCCESS_COLOR)
+                if error_count > 0:
+                    self._show_snackbar(f"⚠️ {error_count} archivos no válidos", self.ERROR_COLOR)
+        
+        self.file_picker = ft.FilePicker(on_result=on_upload_result)
+        self.page.overlay.append(self.file_picker)
+        
         # Initialize form fields for add class
         self.class_name_field = ft.TextField(
             label="Nombre de la clase",
@@ -98,34 +115,6 @@ class AndroidStyleMainWindow:
                         style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY)
                     ),
                 ], spacing=10),
-            ]),
-            bgcolor=self.SURFACE_COLOR,
-            padding=20,
-            border_radius=8,
-            margin=ft.margin.only(bottom=20)
-        )
-
-        # View images container
-        self.images_grid = ft.GridView(
-            expand=True,
-            runs_count=3,
-            max_extent=150,
-            child_aspect_ratio=1.0,
-            spacing=10,
-            run_spacing=10,
-        )
-        self.view_images_container = ft.Container(
-            visible=False,
-            content=ft.Column([
-                ft.Text("Imágenes de la Clase", size=16, weight=ft.FontWeight.BOLD, color=self.TEXT_PRIMARY),
-                ft.Container(height=10),
-                ft.ElevatedButton(
-                    "Cerrar",
-                    on_click=self._close_view_images,
-                    style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY)
-                ),
-                ft.Container(height=10),
-                self.images_grid,
             ]),
             bgcolor=self.SURFACE_COLOR,
             padding=20,
@@ -517,9 +506,6 @@ class AndroidStyleMainWindow:
                 # Add class form
                 self.add_class_form,
 
-                # View images container
-                self.view_images_container,
-
                 # Classes list
                 self.classes_container,
 
@@ -789,62 +775,80 @@ class AndroidStyleMainWindow:
 
 
     def _view_class_images(self, class_name: str):
-        """View images in a class with ability to delete them."""
-        self.current_view_class = class_name
+        """View images - show in overlay modal."""
         images = self.dataset_manager.get_class_images(class_name)
-        
         if not images:
-            self._show_snackbar(f"📭 No hay imágenes en '{class_name}'", self.SECONDARY_COLOR)
+            self._show_snackbar(f"Sin imágenes", self.SECONDARY_COLOR)
             return
         
-        # Clear and populate images grid
-        self.images_grid.controls.clear()
-        self._show_snackbar(f"Viendo {len(images)} imágenes de '{class_name}'", self.SUCCESS_COLOR)
+        # Create close function
+        def close_modal(e=None):
+            for ctrl in self.page.overlay:
+                if isinstance(ctrl, ft.Container) and hasattr(ctrl, 'data') and ctrl.data == 'images_modal':
+                    self.page.overlay.remove(ctrl)
+                    break
+            self.page.update()
+        
+        # Create grid
+        grid = ft.GridView(runs_count=4, spacing=10, run_spacing=10, auto_scroll=True, height=450)
         
         for img in images:
-            img_path = img['path']
-            filename = img['filename']
+            del_btn = ft.IconButton(ft.Icons.DELETE, icon_color=self.ERROR_COLOR)
+            del_btn.on_click = lambda e, f=img['filename'], c=class_name: (
+                self.dataset_manager.remove_image_from_class(c, f),
+                self.project_config.save_config(),
+                close_modal(),
+                self._view_class_images(c),
+                self._show_snackbar("✅ Eliminada", self.SUCCESS_COLOR)
+            )[-1]
             
-            def create_delete_handler(path, fname):
-                def on_delete(e):
-                    self._delete_image(path, fname)
-                return on_delete
-            
-            # Create image card with delete button
-            img_card = ft.Container(
+            card = ft.Container(
                 content=ft.Stack([
-                    ft.Image(
-                        src=img_path,
-                        fit=ft.ImageFit.COVER,
-                        border_radius=8,
-                    ),
-                    ft.Container(
-                        content=ft.IconButton(
-                            ft.Icons.DELETE,
-                            icon_color=self.ERROR_COLOR,
-                            icon_size=24,
-                            on_click=create_delete_handler(img_path, filename),
-                            tooltip="Eliminar imagen"
-                        ),
-                        alignment=ft.alignment.top_right,
-                        bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.BLACK),
-                        padding=5,
-                        border_radius=8,
-                    )
+                    ft.Image(src=img['path'], fit=ft.ImageFit.COVER, border_radius=8),
+                    ft.Container(content=del_btn, alignment=ft.alignment.top_right,
+                                bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.BLACK), padding=3, border_radius=8)
                 ]),
-                width=150,
-                height=150,
-                border_radius=8,
-                border=ft.border.all(1, self.SURFACE_COLOR),
+                width=140, height=140, border_radius=8, border=ft.border.all(1, self.SURFACE_COLOR)
             )
-            self.images_grid.controls.append(img_card)
+            grid.controls.append(card)
         
-        self.view_images_container.visible = True
-        self.page.update()
-
-    def _close_view_images(self, e):
-        """Close the view images container."""
-        self.view_images_container.visible = False
+        close_btn = ft.IconButton(ft.Icons.CLOSE, on_click=close_modal)
+        
+        modal_content = ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Text(f"Imágenes: {class_name}", size=18, weight=ft.FontWeight.BOLD),
+                    ft.Container(expand=True),
+                    close_btn
+                ]),
+                grid
+            ], spacing=10),
+            bgcolor=self.SURFACE_COLOR,
+            padding=20,
+            border_radius=12,
+            width=750,
+            shadow=ft.BoxShadow(blur_radius=20, color="000000")
+        )
+        
+        # Create overlay container
+        overlay = ft.Container(
+            content=ft.Column([
+                ft.Container(expand=True),
+                ft.Row([
+                    ft.Container(expand=True),
+                    modal_content,
+                    ft.Container(expand=True)
+                ]),
+                ft.Container(expand=True)
+            ]),
+            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+            alignment=ft.alignment.center,
+            expand=True,
+            on_click=close_modal
+        )
+        overlay.data = 'images_modal'
+        
+        self.page.overlay.append(overlay)
         self.page.update()
 
     def _delete_image(self, image_path: str, filename: str = None):
@@ -868,51 +872,72 @@ class AndroidStyleMainWindow:
             self._show_snackbar(f"❌ Error al eliminar la imagen", self.ERROR_COLOR)
 
     def _delete_class(self, class_name: str):
-        """Delete a class."""
-        def confirm_delete(e):
-            if self.dataset_manager.remove_class(class_name):
+        """Delete a class - confirmation overlay."""
+        def on_delete(e):
+            try:
+                self.dataset_manager.remove_class(class_name)
                 self.project_config.remove_class(class_name)
                 self.project_config.save_config()
                 self._update_classes_display()
-                self._show_snackbar(f"✅ Clase '{class_name}' eliminada", self.SUCCESS_COLOR)
-            else:
-                self._show_snackbar(f"❌ Error al eliminar clase '{class_name}'", self.ERROR_COLOR)
-            confirm_dialog.open = False
+                close_modal()
+                self._show_snackbar(f"✅ Eliminada", self.SUCCESS_COLOR)
+            except Exception as ex:
+                self._show_snackbar(f"❌ Error", self.ERROR_COLOR)
+        
+        def close_modal(e=None):
+            for ctrl in self.page.overlay:
+                if isinstance(ctrl, ft.Container) and hasattr(ctrl, 'data') and ctrl.data == 'confirm_modal':
+                    self.page.overlay.remove(ctrl)
+                    break
             self.page.update()
-
-        confirm_dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Confirmar eliminación"),
-            content=ft.Text(f"¿Estás seguro de que quieres eliminar la clase '{class_name}' y todas sus imágenes?"),
-            actions=[
-                ft.TextButton("Cancelar", on_click=lambda e: setattr(confirm_dialog, 'open', False) or self.page.update()),
-                ft.ElevatedButton("Eliminar", on_click=confirm_delete, style=ft.ButtonStyle(bgcolor=self.ERROR_COLOR)),
-            ],
+        
+        # Modal content
+        modal = ft.Container(
+            content=ft.Column([
+                ft.Text(f"¿Eliminar '{class_name}'?", size=18, weight=ft.FontWeight.BOLD),
+                ft.Text("Se eliminarán todas sus imágenes", size=12, color=self.TEXT_SECONDARY),
+                ft.Container(height=20),
+                ft.Row([
+                    ft.ElevatedButton("Cancelar", on_click=close_modal, 
+                                    style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR)),
+                    ft.ElevatedButton("Eliminar", on_click=on_delete,
+                                    style=ft.ButtonStyle(bgcolor=self.ERROR_COLOR, color=self.TEXT_PRIMARY))
+                ], spacing=10)
+            ], spacing=15),
+            bgcolor=self.SURFACE_COLOR,
+            padding=20,
+            border_radius=12,
+            width=350,
+            shadow=ft.BoxShadow(blur_radius=20, color="000000")
         )
-
-        self.page.dialog = confirm_dialog
-        confirm_dialog.open = True
+        
+        overlay = ft.Container(
+            content=ft.Column([
+                ft.Container(expand=True),
+                ft.Row([
+                    ft.Container(expand=True),
+                    modal,
+                    ft.Container(expand=True)
+                ]),
+                ft.Container(expand=True)
+            ]),
+            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+            alignment=ft.alignment.center,
+            expand=True,
+            on_click=close_modal
+        )
+        overlay.data = 'confirm_modal'
+        
+        self.page.overlay.append(overlay)
         self.page.update()
 
     def _upload_images_to_class(self, class_name: str):
-        """Upload images to a class."""
+        """Upload images - open file picker directly."""
         self.current_upload_class = class_name
-        
-        def pick_files_result(e: ft.FilePickerResultEvent):
-            if e.files:
-                file_paths = [f.path for f in e.files]
-                success_count, error_count = self.dataset_manager.add_images_to_class(class_name, file_paths)
-                
-                if success_count > 0:
-                    self._update_classes_display()
-                    self._show_snackbar(f"✅ {success_count} imágenes agregadas a '{class_name}'", self.SUCCESS_COLOR)
-                if error_count > 0:
-                    self._show_snackbar(f"⚠️ {error_count} archivos no válidos ignorados", self.ERROR_COLOR)
-        
-        file_picker = ft.FilePicker(on_result=pick_files_result)
-        self.page.overlay.append(file_picker)
-        self.page.update()
-        file_picker.pick_files(allow_multiple=True, allowed_extensions=["jpg", "jpeg", "png", "bmp", "tiff", "webp"])
+        self.file_picker.pick_files(
+            allow_multiple=True,
+            allowed_extensions=["jpg", "jpeg", "png", "bmp", "tiff", "webp"]
+        )
 
     def _start_quick_training(self, e):
         """Start quick training."""
