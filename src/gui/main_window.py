@@ -51,95 +51,167 @@ class MainWindow:
         """
         setup_tab = ft.Container(
             content=ft.Column([
+                # Header
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.SETTINGS, size=28, color=ft.Colors.BLUE_600),
+                        ft.Text("Project Configuration", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
+                    ], alignment=ft.MainAxisAlignment.START),
+                    margin=ft.margin.only(bottom=20)
+                ),
+
+                # Project management
                 ft.Card(
                     content=ft.Container(
                         content=ft.Column([
-                            ft.Text("Project Management", size=18, weight=ft.FontWeight.BOLD),
+                            ft.Row([
+                                ft.Icon(ft.Icons.FOLDER, size=24, color=ft.Colors.BLUE_600),
+                                ft.Text("Project Management", size=18, weight=ft.FontWeight.BOLD),
+                            ], alignment=ft.MainAxisAlignment.START),
+                            ft.Container(height=10),
                             self.project_manager.build(),
-                        ]),
+                        ], spacing=10),
                         padding=20
-                    )
+                    ),
+                    elevation=4,
+                    margin=ft.margin.only(bottom=20)
                 ),
+
+                # Configuration cards in a grid
+                ft.Row([
+                    ft.Container(
+                        content=ft.Card(
+                            content=ft.Container(
+                                content=ft.Column([
+                                    ft.Icon(ft.Icons.SELECT_ALL, size=32, color=ft.Colors.GREEN_600),
+                                    ft.Text("Task & Model", size=16, weight=ft.FontWeight.BOLD),
+                                    ft.Container(height=10),
+                                    self.task_selector.build(),
+                                    ft.Container(height=10),
+                                    self.model_selector.build(),
+                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                                padding=20
+                            ),
+                            elevation=4
+                        ),
+                        width=400
+                    ),
+                    ft.Container(
+                        content=ft.Card(
+                            content=ft.Container(
+                                content=ft.Column([
+                                    ft.Icon(ft.Icons.TUNE, size=32, color=ft.Colors.ORANGE_600),
+                                    ft.Text("Training Settings", size=16, weight=ft.FontWeight.BOLD),
+                                    ft.Container(height=10),
+                                    self.settings_panel.build(),
+                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                                padding=20
+                            ),
+                            elevation=4
+                        ),
+                        width=400
+                    ),
+                ], alignment=ft.MainAxisAlignment.START, spacing=20),
+
+                ft.Container(height=20),
+
+                # Class management
                 ft.Card(
                     content=ft.Container(
                         content=ft.Column([
-                            ft.Text("Task Configuration", size=18, weight=ft.FontWeight.BOLD),
-                            self.task_selector.build(),
-                        ]),
-                        padding=20
-                    )
-                ),
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Model Selection", size=18, weight=ft.FontWeight.BOLD),
-                            self.model_selector.build(),
-                        ]),
-                        padding=20
-                    )
-                ),
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Training Settings", size=18, weight=ft.FontWeight.BOLD),
-                            self.settings_panel.build(),
-                        ]),
-                        padding=20
-                    )
-                ),
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Class Management", size=18, weight=ft.FontWeight.BOLD),
+                            ft.Row([
+                                ft.Icon(ft.Icons.CATEGORY, size=24, color=ft.Colors.PURPLE_600),
+                                ft.Text("Class Management", size=18, weight=ft.FontWeight.BOLD),
+                            ], alignment=ft.MainAxisAlignment.START),
+                            ft.Container(height=10),
                             self.class_manager.build(),
-                        ]),
+                        ], spacing=10),
                         padding=20
-                    )
+                    ),
+                    elevation=4
                 ),
-            ], scroll=ft.ScrollMode.AUTO, spacing=10),
-            padding=10
+
+            ], scroll=ft.ScrollMode.AUTO, spacing=20),
+            padding=20
         )
 
         data_tab = ft.Container(
-            content=ft.Card(
-                content=ft.Container(
-                    content=ft.Column([
-                        ft.Text("Dataset Upload", size=18, weight=ft.FontWeight.BOLD),
-                        self.dataset_uploader.build(),
-                    ]),
-                    padding=20
-                )
-            ),
-            padding=10
+            content=ft.Column([
+                # Header
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.DATA_USAGE, size=28, color=ft.Colors.GREEN_600),
+                        ft.Text("Dataset Management", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
+                    ], alignment=ft.MainAxisAlignment.START),
+                    margin=ft.margin.only(bottom=20)
+                ),
+
+                # Dataset uploader
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Icon(ft.Icons.CLOUD_UPLOAD, size=24, color=ft.Colors.BLUE_600),
+                                ft.Text("Dataset Upload", size=18, weight=ft.FontWeight.BOLD),
+                            ], alignment=ft.MainAxisAlignment.START),
+                            ft.Container(height=10),
+                            self.dataset_uploader.build(),
+                        ], spacing=10),
+                        padding=20
+                    ),
+                    elevation=4
+                ),
+
+            ], scroll=ft.ScrollMode.AUTO, spacing=20),
+            padding=20
         )
 
         training_tab = ft.Container(
             content=ft.Column([
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Training Controls", size=18, weight=ft.FontWeight.BOLD),
-                            self.training_controls.build(),
-                        ]),
-                        padding=20
-                    )
+                # Header
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.PLAY_ARROW, size=28, color=ft.Colors.RED_600),
+                        ft.Text("Training & Monitoring", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
+                    ], alignment=ft.MainAxisAlignment.START),
+                    margin=ft.margin.only(bottom=20)
                 ),
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Logs & Visualization", size=18, weight=ft.FontWeight.BOLD),
-                            self.logs_visualization.build(),
-                        ]),
-                        padding=20
-                    )
-                ),
-            ], spacing=10),
-            padding=10
-        )
 
-        projects_tab = ft.Container(
-            content=self.project_list.build(),
-            padding=10
+                # Training controls
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Icon(ft.Icons.PLAY_CIRCLE, size=24, color=ft.Colors.GREEN_600),
+                                ft.Text("Training Controls", size=18, weight=ft.FontWeight.BOLD),
+                            ], alignment=ft.MainAxisAlignment.START),
+                            ft.Container(height=10),
+                            self.training_controls.build(),
+                        ], spacing=10),
+                        padding=20
+                    ),
+                    elevation=4,
+                    margin=ft.margin.only(bottom=20)
+                ),
+
+                # Logs and visualization
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Icon(ft.Icons.ASSESSMENT, size=24, color=ft.Colors.ORANGE_600),
+                                ft.Text("Logs & Visualization", size=18, weight=ft.FontWeight.BOLD),
+                            ], alignment=ft.MainAxisAlignment.START),
+                            ft.Container(height=10),
+                            self.logs_visualization.build(),
+                        ], spacing=10),
+                        padding=20
+                    ),
+                    elevation=4
+                ),
+
+            ], scroll=ft.ScrollMode.AUTO, spacing=20),
+            padding=20
         )
 
         tabs = ft.Tabs(
@@ -148,11 +220,6 @@ class MainWindow:
                     text="Setup",
                     icon=ft.Icons.SETTINGS,
                     content=setup_tab
-                ),
-                ft.Tab(
-                    text="Projects",
-                    icon=ft.Icons.FOLDER,
-                    content=projects_tab
                 ),
                 ft.Tab(
                     text="Data",

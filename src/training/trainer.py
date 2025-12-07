@@ -74,7 +74,10 @@ class Trainer:
             self.log_callback("Loading dataset...")
 
             # Check if it's an image dataset or tabular dataset
-            if self.dataset_path.endswith('.csv'):
+            if isinstance(self.dataset_path, dict) and 'classes' in self.dataset_path:
+                # Image dataset with classes
+                self._train_image_dataset()
+            elif self.dataset_path and self.dataset_path.endswith('.csv'):
                 # Tabular data
                 df = pd.read_csv(self.dataset_path)
                 # Assume target column is the last one or named 'target'
@@ -109,9 +112,7 @@ class Trainer:
                     self._train_traditional_ml(X, y)
 
             else:
-                # Image dataset (folder with images)
-                self.log_callback("Image datasets not fully implemented yet. Using basic CNN.")
-                self._train_image_dataset()
+                self.log_callback("No valid dataset found. Please upload data first.")
 
         except Exception as e:
             self.log_callback(f"Error during training: {str(e)}")
@@ -246,7 +247,144 @@ class Trainer:
 
     def _train_image_dataset(self):
         """Train models on image datasets."""
-        self.log_callback("Image dataset training not fully implemented yet.")
-        self.log_callback("For now, only basic CNN is supported for image classification.")
-        # TODO: Implement image loading and training
-        self.log_callback("Please use CSV datasets for current model training.")
+        try:
+            self.log_callback("Loading image dataset...")
+
+            # For image datasets, we expect the dataset_path to be a dict with class information
+            if isinstance(self.dataset_path, dict) and 'classes' in self.dataset_path:
+                classes_data = self.dataset_path['classes']
+            else:
+                # Try to get from dataset_uploader
+                self.log_callback("Error: Image dataset not properly configured")
+                return
+
+            # Check if we have images
+            total_images = sum(len(images) for images in classes_data.values())
+            if total_images == 0:
+                self.log_callback("Error: No images found in dataset")
+                return
+
+            self.log_callback(f"Found {total_images} images in {len(classes_data)} classes")
+
+            # Import torchvision for image processing
+            import torchvision
+            import torchvision.transforms as transforms
+            from torchvision.datasets import ImageFolder
+            from torch.utils.data import DataLoader
+            import PIL.Image as Image
+
+            # Create a custom dataset class for our organized images
+            class CustomImageDataset(torch.utils.data.Dataset):
+                def __init__(self, classes_data, transform=None):
+                    self.data = []
+                    self.transform = transform
+                    self.class_to_idx = {}
+
+                    # Create class mapping
+                    for idx, class_name in enumerate(sorted(classes_data.keys())):
+                        self.class_to_idx[class_name] = idx
+
+                    # Collect all image paths with labels
+                    for class_name, image_paths in classes_data.items():
+                        label = self.class_to_idx[class_name]
+                        for img_path in image_paths:
+                            self.data.append((img_path, label))
+
+                def __len__(self):
+                    return len(self.data)
+
+                def __getitem__(self, idx):
+                    img_path, label = self.data[idx]
+                    try:
+                        image = Image.open(img_path).convert('RGB')
+                        if self.transform:
+                            image = self.transform(image)
+                        return image, label
+                    except Exception as e:
+                        # Return a blank image if loading fails
+                        blank_image = Image.new('RGB', (224, 224), color='gray')
+                        if self.transform:
+                            blank_image = self.transform(blank_image)
+                        return blank_image, label
+
+            # Define transforms
+            transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+
+            # Create dataset
+            dataset = CustomImageDataset(classes_data, transform=transform)
+
+            # Split into train/test
+            train_size = int(0.8 * len(dataset))
+            test_size = len(dataset) - train_size
+            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+            # Create data loaders
+            batch_size = self.hyperparameters.get('batch_size', 32)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+            # Get model
+            num_classes = len(classes_data)
+            self.model = get_model(self.model_type, num_classes=num_classes)
+
+            # Setup optimizer and loss
+            optimizer = optim.Adam(self.model.parameters(), lr=self.hyperparameters.get('learning_rate', 0.001))
+            criterion = nn.CrossEntropyLoss()
+
+            # Training loop
+            epochs = self.hyperparameters.get('epochs', 10)
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.model.to(device)
+
+            self.log_callback(f"Training {self.model_type} on {device} for image classification")
+
+            for epoch in range(epochs):
+                self.model.train()
+                train_loss = 0
+                correct = 0
+                total = 0
+
+                for batch_X, batch_y in train_loader:
+                    batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+
+                    optimizer.zero_grad()
+                    outputs = self.model(batch_X)
+                    loss = criterion(outputs, batch_y)
+                    loss.backward()
+                    optimizer.step()
+
+                    train_loss += loss.item()
+                    _, predicted = outputs.max(1)
+                    total += batch_y.size(0)
+                    correct += predicted.eq(batch_y).sum().item()
+
+                train_acc = 100. * correct / total
+                self.log_callback(f"Epoch {epoch+1}/{epochs}: Loss={train_loss/len(train_loader):.4f}, Acc={train_acc:.2f}%")
+
+            # Evaluation
+            self.model.eval()
+            test_correct = 0
+            test_total = 0
+            with torch.no_grad():
+                for batch_X, batch_y in test_loader:
+                    batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+                    outputs = self.model(batch_X)
+                    _, predicted = outputs.max(1)
+                    test_total += batch_y.size(0)
+                    test_correct += predicted.eq(batch_y).sum().item()
+
+            test_acc = 100. * test_correct / test_total
+            self.log_callback(f"Test Accuracy: {test_acc:.2f}%")
+            self.log_callback("Image classification training completed!")
+
+            # Save the trained model
+            model_path = self._save_model(f"{self.model_type}_image_model")
+
+        except Exception as e:
+            self.log_callback(f"Error in image training: {str(e)}")
+            import traceback
+            self.log_callback(traceback.format_exc())

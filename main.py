@@ -21,7 +21,7 @@ class AppController:
         self.main_window = None
         self.welcome_screen = None
 
-    def show_welcome_screen(self):
+    def show_welcome_screen(self, e=None):
         """Show the welcome screen."""
         if self.welcome_screen is None:
             self.welcome_screen = WelcomeScreen(
@@ -43,8 +43,11 @@ class AppController:
         # If opening existing project, load it
         if project_data:
             self.main_window.project_manager.load_project_data(project_data)
-
-        self.current_view = self.main_window.build()
+            # Rebuild the UI after loading project data
+            self.current_view = self.main_window.build()
+        else:
+            self.current_view = self.main_window.build()
+            
         self.page.controls.clear()
         self.page.add(self.current_view)
         self.page.update()

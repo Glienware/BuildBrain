@@ -817,6 +817,11 @@ class NewProjectWizard:
         # Update timestamps
         self.project_data["last_modified"] = datetime.now().isoformat()
 
+        # Save dataset information if available
+        if hasattr(self, 'dataset_uploader'):
+            dataset_info = self.dataset_uploader.get_dataset_info()
+            self.project_data["dataset"] = dataset_info
+
         # Save to JSON file
         with open(filepath, 'w') as f:
             json.dump(self.project_data, f, indent=2)

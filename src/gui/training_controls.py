@@ -89,7 +89,7 @@ class TrainingControls:
         """
         model = self.components["model_selector"].selected_model.value
         task = self.components["task_selector"].task_type.value
-        dataset = self.components["dataset_uploader"].dataset_path
+        dataset_info = self.components["dataset_uploader"].get_dataset_info()
         
         if not model:
             self._show_error("Please select a model")
@@ -97,8 +97,8 @@ class TrainingControls:
         if not task:
             self._show_error("Please select a task type")
             return False
-        if not dataset:
-            self._show_error("Please upload a dataset")
+        if dataset_info["total_images"] == 0:
+            self._show_error("Please upload some data first")
             return False
             
         return True
@@ -118,7 +118,7 @@ class TrainingControls:
         
         model = self.components["model_selector"].selected_model.value
         task = self.components["task_selector"].task_type.value
-        dataset = self.components["dataset_uploader"].dataset_path
+        dataset_info = self.components["dataset_uploader"].get_dataset_info()
         
         # Get project directory from project manager
         project_dir = "projects"  # default
@@ -130,7 +130,7 @@ class TrainingControls:
             model_type=model,
             task_type=task,
             hyperparameters=params,
-            dataset_path=dataset,
+            dataset_path=dataset_info,  # Pass the full dataset info
             log_callback=self.logs_callback,
             project_dir=project_dir
         )

@@ -86,6 +86,11 @@ class ProjectManager:
         self.components["class_manager"].classes = config.get("classes", [])
         self.components["class_manager"].update_class_list()
         self.components["dataset_uploader"].dataset_path = config.get("dataset_path", "")
+        
+        # Load dataset information if available
+        if "dataset" in config:
+            self.components["dataset_uploader"].load_dataset_info(config["dataset"])
+        
         # Update the page
         self.page.update()
 

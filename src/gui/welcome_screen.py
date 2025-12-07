@@ -254,7 +254,7 @@ class WelcomeScreen:
         self.page.add(wizard.build())
         self.page.update()
 
-    def show_welcome_screen(self):
+    def show_welcome_screen(self, e=None):
         """Show the welcome screen again."""
         # Refresh recent projects list
         self.recent_projects = self.load_recent_projects()

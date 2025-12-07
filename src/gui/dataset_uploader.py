@@ -21,6 +21,7 @@ class DatasetUploader:
         self.classes = {}  # {class_name: [image_paths]}
         self.class_cards = []
         self.on_update = on_update  # Callback to notify parent of updates
+        self.dataset_path = None  # For compatibility with training system
         self.page.overlay.append(self.file_picker)
         self.page.overlay.append(self.folder_picker)
 
@@ -238,11 +239,10 @@ class DatasetUploader:
             else:
                 self.page.update()
 
-    def get_dataset_info(self):
-        """Get information about the current dataset."""
-        total_images = sum(len(images) for images in self.classes.values())
-        return {
-            "classes": self.classes,
-            "total_images": total_images,
-            "num_classes": len(self.classes)
-        }
+    def load_dataset_info(self, dataset_info):
+        """Load dataset information from saved project data."""
+        if dataset_info and 'classes' in dataset_info:
+            self.classes = dataset_info['classes']
+            self.update_class_cards()
+            # Always update the page when loading dataset info
+            self.page.update()
