@@ -155,11 +155,21 @@ class PyTorchTrainer:
             self.log_callback("🚀 Starting training...")
 
             # Setup data transforms
-            transform = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-            ])
+            data_aug = config.get("data_augmentation", True)
+            if data_aug:
+                transform = transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(10),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                ])
+            else:
+                transform = transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                ])
 
             # Load dataset
             self.log_callback("📂 Loading dataset...")
@@ -172,7 +182,8 @@ class PyTorchTrainer:
             self.log_callback(f"📊 Found {len(dataset)} images in {len(dataset.classes)} classes")
 
             # Split dataset
-            train_size = int(0.8 * len(dataset))
+            val_split = config.get("validation_split", 0.2)
+            train_size = int((1 - val_split) * len(dataset))
             val_size = len(dataset) - train_size
             train_dataset, val_dataset = torch.utils.data.random_split(
                 dataset, [train_size, val_size]
@@ -197,21 +208,48 @@ class PyTorchTrainer:
             num_classes = len(dataset.classes)
             self.model = SimpleCNN(num_classes).to(self.device)
 
-            # Setup optimizer and loss
-            criterion = nn.CrossEntropyLoss()
-
-            if config["optimizer"].lower() == "adam":
-                optimizer = optim.Adam(self.model.parameters(), lr=config["learning_rate"])
-            elif config["optimizer"].lower() == "sgd":
-                optimizer = optim.SGD(self.model.parameters(), lr=config["learning_rate"], momentum=0.9)
+            # Setup loss function
+            loss_func = config.get("loss_function", "cross_entropy")
+            if loss_func == "cross_entropy":
+                criterion = nn.CrossEntropyLoss()
+            elif loss_func == "mse":
+                criterion = nn.MSELoss()
+            elif loss_func == "bce":
+                criterion = nn.BCELoss()
             else:
-                optimizer = optim.Adam(self.model.parameters(), lr=config["learning_rate"])
+                criterion = nn.CrossEntropyLoss()
+
+            # Setup optimizer
+            weight_decay = config.get("weight_decay", 0.0)
+            momentum = config.get("momentum", 0.9)
+            if config["optimizer"].lower() == "adam":
+                optimizer = optim.Adam(self.model.parameters(), lr=config["learning_rate"], weight_decay=weight_decay)
+            elif config["optimizer"].lower() == "sgd":
+                optimizer = optim.SGD(self.model.parameters(), lr=config["learning_rate"], momentum=momentum, weight_decay=weight_decay)
+            elif config["optimizer"].lower() == "rmsprop":
+                optimizer = optim.RMSprop(self.model.parameters(), lr=config["learning_rate"], weight_decay=weight_decay)
+            else:
+                optimizer = optim.Adam(self.model.parameters(), lr=config["learning_rate"], weight_decay=weight_decay)
+
+            # Setup scheduler
+            scheduler_type = config.get("scheduler", "none")
+            if scheduler_type == "step":
+                scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+            elif scheduler_type == "cosine":
+                scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["epochs"])
+            elif scheduler_type == "exponential":
+                scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+            else:
+                scheduler = None
 
             # Training loop
             self.log_callback(f"🎯 Training for {config['epochs']} epochs...")
 
             best_accuracy = 0.0
             start_time = time.time()
+            patience = config.get("patience", 10)
+            early_stopping = config.get("early_stopping", False)
+            patience_counter = 0
 
             for epoch in range(config["epochs"]):
                 if not self.is_training:  # Allow stopping
@@ -222,6 +260,10 @@ class PyTorchTrainer:
 
                 # Validate epoch
                 val_loss, val_acc = self._validate_epoch(val_loader, self.model, criterion, self.device)
+
+                # Step scheduler
+                if scheduler:
+                    scheduler.step()
 
                 # Calculate ETA
                 elapsed = time.time() - start_time
@@ -238,7 +280,15 @@ class PyTorchTrainer:
                 # Save best model
                 if val_acc > best_accuracy:
                     best_accuracy = val_acc
+                    patience_counter = 0
                     self._save_model()
+                else:
+                    patience_counter += 1
+
+                # Early stopping
+                if early_stopping and patience_counter >= patience:
+                    self.log_callback(f"🛑 Early stopping at epoch {epoch+1}")
+                    break
 
             # Final save
             self._save_model()

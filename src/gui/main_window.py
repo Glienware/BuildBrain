@@ -41,6 +41,7 @@ class AndroidStyleMainWindow:
         self.logs = []
         self.logs_display = ft.Column(height=300, scroll=ft.ScrollMode.AUTO, spacing=2)
         self.training_active = False
+        self.current_view_class = None
 
         # Initialize core components
         self.project_config = ProjectConfig(project_path)
@@ -72,6 +73,66 @@ class AndroidStyleMainWindow:
 
     def _init_ui_components(self):
         """Initialize all UI components."""
+        # Initialize form fields for add class
+        self.class_name_field = ft.TextField(
+            label="Nombre de la clase",
+            autofocus=True,
+            width=300,
+            border_color=self.SURFACE_COLOR,
+            focused_border_color=self.PRIMARY_COLOR,
+        )
+        self.add_class_form = ft.Container(
+            visible=False,
+            content=ft.Column([
+                ft.Text("Agregar Nueva Clase", size=16, weight=ft.FontWeight.BOLD, color=self.TEXT_PRIMARY),
+                self.class_name_field,
+                ft.Row([
+                    ft.ElevatedButton(
+                        "Agregar",
+                        on_click=self._add_class_from_form,
+                        style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY)
+                    ),
+                    ft.ElevatedButton(
+                        "Cancelar",
+                        on_click=self._toggle_add_class_form,
+                        style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY)
+                    ),
+                ], spacing=10),
+            ]),
+            bgcolor=self.SURFACE_COLOR,
+            padding=20,
+            border_radius=8,
+            margin=ft.margin.only(bottom=20)
+        )
+
+        # View images container
+        self.images_grid = ft.GridView(
+            expand=True,
+            runs_count=3,
+            max_extent=150,
+            child_aspect_ratio=1.0,
+            spacing=10,
+            run_spacing=10,
+        )
+        self.view_images_container = ft.Container(
+            visible=False,
+            content=ft.Column([
+                ft.Text("Imágenes de la Clase", size=16, weight=ft.FontWeight.BOLD, color=self.TEXT_PRIMARY),
+                ft.Container(height=10),
+                ft.ElevatedButton(
+                    "Cerrar",
+                    on_click=self._close_view_images,
+                    style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY)
+                ),
+                ft.Container(height=10),
+                self.images_grid,
+            ]),
+            bgcolor=self.SURFACE_COLOR,
+            padding=20,
+            border_radius=8,
+            margin=ft.margin.only(bottom=20)
+        )
+
         # App Bar
         self.app_bar = self._create_app_bar()
 
@@ -80,6 +141,48 @@ class AndroidStyleMainWindow:
 
         # Status Bar
         self.status_bar = self._create_status_bar()
+
+    def _create_upload_modal(self):
+        """Create upload images modal."""
+        def on_upload_files(e):
+            if e.files:
+                for file in e.files:
+                    success = self.dataset_manager.add_images_to_class(self.current_upload_class, [file.path])
+                    if success[0] > 0:
+                        self._show_snackbar(f"✅ {success[0]} imagen(es) subida(s)", self.SUCCESS_COLOR)
+                    if success[1] > 0:
+                        self._show_snackbar(f"⚠️ {success[1]} imagen(es) rechazada(s)", self.SECONDARY_COLOR)
+                self._update_classes_display()
+                self.upload_modal.open = False
+                self.page.update()
+        
+        file_picker = ft.FilePicker(on_result=on_upload_files)
+        self.page.overlay.append(file_picker)
+        
+        return ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Subir Imágenes"),
+            content=ft.Column([
+                ft.Text("¿Qué deseas hacer?", size=14, color=self.TEXT_SECONDARY),
+            ]),
+            actions=[
+                ft.TextButton(
+                    "Cancelar",
+                    on_click=lambda e: self._close_upload_modal()
+                ),
+                ft.ElevatedButton(
+                    "Seleccionar Imágenes",
+                    on_click=lambda e: file_picker.pick_files(allowed_extensions=["jpg", "jpeg", "png", "bmp"]),
+                    style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY)
+                ),
+            ],
+        )
+
+    def _close_upload_modal(self, e=None):
+        """Close upload modal."""
+        if hasattr(self, 'upload_modal'):
+            self.upload_modal.open = False
+            self.page.update()
 
     def _create_app_bar(self) -> ft.Container:
         """Create Android Studio-style app bar."""
@@ -167,6 +270,14 @@ class AndroidStyleMainWindow:
         batch_size = self.project_config.get_setting("batch_size", 32)
         learning_rate = self.project_config.get_setting("learning_rate", 0.001)
         optimizer = self.project_config.get_setting("optimizer", "adam")
+        loss_function = self.project_config.get_setting("loss_function", "cross_entropy")
+        scheduler = self.project_config.get_setting("scheduler", "none")
+        weight_decay = self.project_config.get_setting("weight_decay", 0.0)
+        momentum = self.project_config.get_setting("momentum", 0.9)
+        data_augmentation = self.project_config.get_setting("data_augmentation", True)
+        validation_split = self.project_config.get_setting("validation_split", 0.2)
+        early_stopping = self.project_config.get_setting("early_stopping", False)
+        patience = self.project_config.get_setting("patience", 10)
 
         # Create form fields
         self.config_fields = {
@@ -222,6 +333,67 @@ class AndroidStyleMainWindow:
                 border_color=self.SURFACE_COLOR,
                 focused_border_color=self.PRIMARY_COLOR,
             ),
+            "loss_function": ft.Dropdown(
+                label="Función de Pérdida",
+                value=loss_function,
+                options=[
+                    ft.dropdown.Option("cross_entropy", "Cross Entropy"),
+                    ft.dropdown.Option("mse", "MSE"),
+                    ft.dropdown.Option("bce", "Binary Cross Entropy"),
+                ],
+                width=200,
+                border_color=self.SURFACE_COLOR,
+                focused_border_color=self.PRIMARY_COLOR,
+            ),
+            "scheduler": ft.Dropdown(
+                label="Scheduler de LR",
+                value=scheduler,
+                options=[
+                    ft.dropdown.Option("none", "Ninguno"),
+                    ft.dropdown.Option("step", "Step LR"),
+                    ft.dropdown.Option("cosine", "Cosine Annealing"),
+                    ft.dropdown.Option("exponential", "Exponential"),
+                ],
+                width=200,
+                border_color=self.SURFACE_COLOR,
+                focused_border_color=self.PRIMARY_COLOR,
+            ),
+            "weight_decay": ft.TextField(
+                label="Weight Decay",
+                value=str(weight_decay),
+                width=150,
+                border_color=self.SURFACE_COLOR,
+                focused_border_color=self.PRIMARY_COLOR,
+            ),
+            "momentum": ft.TextField(
+                label="Momentum (SGD)",
+                value=str(momentum),
+                width=150,
+                border_color=self.SURFACE_COLOR,
+                focused_border_color=self.PRIMARY_COLOR,
+            ),
+            "validation_split": ft.TextField(
+                label="Split de Validación",
+                value=str(validation_split),
+                width=150,
+                border_color=self.SURFACE_COLOR,
+                focused_border_color=self.PRIMARY_COLOR,
+            ),
+            "patience": ft.TextField(
+                label="Paciencia Early Stopping",
+                value=str(patience),
+                width=150,
+                border_color=self.SURFACE_COLOR,
+                focused_border_color=self.PRIMARY_COLOR,
+            ),
+            "data_augmentation": ft.Checkbox(
+                label="Data Augmentation",
+                value=data_augmentation,
+            ),
+            "early_stopping": ft.Checkbox(
+                label="Early Stopping",
+                value=early_stopping,
+            ),
         }
 
         # Save button
@@ -272,7 +444,33 @@ class AndroidStyleMainWindow:
                         ft.Container(height=10),
                         ft.Row([
                             self.config_fields["optimizer"],
-                        ]),
+                            self.config_fields["loss_function"],
+                            self.config_fields["scheduler"],
+                        ], spacing=20),
+                        ft.Container(height=10),
+                        ft.Row([
+                            self.config_fields["weight_decay"],
+                            self.config_fields["momentum"],
+                        ], spacing=20),
+                    ]),
+                    bgcolor=self.SURFACE_COLOR,
+                    padding=20,
+                    border_radius=8,
+                    margin=ft.margin.only(bottom=20)
+                ),
+
+                ft.Container(
+                    content=ft.Column([
+                        ft.Text("Opciones Avanzadas", size=16, weight=ft.FontWeight.BOLD, color=self.TEXT_PRIMARY),
+                        ft.Row([
+                            self.config_fields["validation_split"],
+                            self.config_fields["patience"],
+                        ], spacing=20),
+                        ft.Container(height=10),
+                        ft.Row([
+                            self.config_fields["data_augmentation"],
+                            self.config_fields["early_stopping"],
+                        ], spacing=20),
                     ]),
                     bgcolor=self.SURFACE_COLOR,
                     padding=20,
@@ -295,17 +493,6 @@ class AndroidStyleMainWindow:
         # Classes list container
         self.classes_container = ft.Column(spacing=10)
 
-        # Add class dialog
-        self.add_class_dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Agregar Nueva Clase"),
-            content=ft.TextField(label="Nombre de la clase", autofocus=True),
-            actions=[
-                ft.TextButton("Cancelar", on_click=self._close_add_class_dialog),
-                ft.ElevatedButton("Agregar", on_click=self._add_class),
-            ],
-        )
-
         # Update classes display
         self._update_classes_display()
 
@@ -320,12 +507,18 @@ class AndroidStyleMainWindow:
                         ft.ElevatedButton(
                             "Agregar Clase",
                             icon=ft.Icons.ADD,
-                            on_click=self._show_add_class_dialog,
-                            style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR)
+                            on_click=self._toggle_add_class_form,
+                            style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY)
                         ),
                     ]),
                     margin=ft.margin.only(bottom=20)
                 ),
+
+                # Add class form
+                self.add_class_form,
+
+                # View images container
+                self.view_images_container,
 
                 # Classes list
                 self.classes_container,
@@ -352,7 +545,7 @@ class AndroidStyleMainWindow:
             "Entrenamiento Rápido",
             icon=ft.Icons.PLAY_ARROW,
             on_click=self._start_quick_training,
-            style=ft.ButtonStyle(bgcolor=self.SUCCESS_COLOR),
+            style=ft.ButtonStyle(bgcolor=self.SUCCESS_COLOR, color=self.TEXT_PRIMARY),
             disabled=self.training_active
         )
 
@@ -360,7 +553,7 @@ class AndroidStyleMainWindow:
             "Entrenamiento Avanzado",
             icon=ft.Icons.PLAY_CIRCLE_FILLED,
             on_click=self._start_advanced_training,
-            style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR),
+            style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY),
             disabled=self.training_active
         )
 
@@ -368,7 +561,7 @@ class AndroidStyleMainWindow:
             "Detener Entrenamiento",
             icon=ft.Icons.STOP,
             on_click=self._stop_training,
-            style=ft.ButtonStyle(bgcolor=self.ERROR_COLOR),
+            style=ft.ButtonStyle(bgcolor=self.ERROR_COLOR, color=self.TEXT_PRIMARY),
             visible=self.training_active
         )
 
@@ -431,7 +624,18 @@ class AndroidStyleMainWindow:
         """Update the classes display in dataset tab."""
         self.classes_container.controls.clear()
 
+        # Load from both filesystem and config
         classes_info = self.dataset_manager.get_classes_info()
+        
+        # También mostrar las clases del config aunque no tengan imágenes
+        config_classes = self.project_config.get_setting("classes", [])
+        for class_name in config_classes:
+            if not any(c["name"] == class_name for c in classes_info):
+                classes_info.append({
+                    "name": class_name,
+                    "image_count": 0,
+                    "path": os.path.join(self.dataset_manager.dataset_path, class_name)
+                })
 
         if not classes_info:
             self.classes_container.controls.append(
@@ -454,6 +658,17 @@ class AndroidStyleMainWindow:
 
     def _create_class_card(self, class_info: Dict[str, Any]) -> ft.Card:
         """Create a card for a class."""
+        class_name = class_info["name"]
+        
+        def on_view_images(e):
+            self._view_class_images(class_name)
+        
+        def on_upload_images(e):
+            self._upload_images_to_class(class_name)
+        
+        def on_delete_class(e):
+            self._delete_class(class_name)
+        
         return ft.Card(
             content=ft.Container(
                 content=ft.Column([
@@ -468,19 +683,20 @@ class AndroidStyleMainWindow:
                         ft.ElevatedButton(
                             "Subir Imágenes",
                             icon=ft.Icons.CLOUD_UPLOAD,
-                            on_click=lambda e, name=class_info["name"]: self._upload_images_to_class(name),
-                            style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR)
+                            on_click=on_upload_images,
+                            style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY)
                         ),
                         ft.ElevatedButton(
                             "Ver Imágenes",
                             icon=ft.Icons.VISIBILITY,
-                            on_click=lambda e, name=class_info["name"]: self._view_class_images(name),
+                            on_click=on_view_images,
+                            style=ft.ButtonStyle(bgcolor=self.PRIMARY_COLOR, color=self.TEXT_PRIMARY)
                         ),
                         ft.IconButton(
                             ft.Icons.DELETE,
                             icon_color=self.ERROR_COLOR,
                             tooltip="Eliminar clase",
-                            on_click=lambda e, name=class_info["name"]: self._delete_class(name)
+                            on_click=on_delete_class
                         ),
                     ], spacing=10),
                 ]),
@@ -525,6 +741,14 @@ class AndroidStyleMainWindow:
             self.project_config.update_setting("batch_size", int(self.config_fields["batch_size"].value))
             self.project_config.update_setting("learning_rate", float(self.config_fields["learning_rate"].value))
             self.project_config.update_setting("optimizer", self.config_fields["optimizer"].value)
+            self.project_config.update_setting("loss_function", self.config_fields["loss_function"].value)
+            self.project_config.update_setting("scheduler", self.config_fields["scheduler"].value)
+            self.project_config.update_setting("weight_decay", float(self.config_fields["weight_decay"].value))
+            self.project_config.update_setting("momentum", float(self.config_fields["momentum"].value))
+            self.project_config.update_setting("validation_split", float(self.config_fields["validation_split"].value))
+            self.project_config.update_setting("patience", int(self.config_fields["patience"].value))
+            self.project_config.update_setting("data_augmentation", self.config_fields["data_augmentation"].value)
+            self.project_config.update_setting("early_stopping", self.config_fields["early_stopping"].value)
 
             # Save to file
             if self.project_config.save_config():
@@ -539,31 +763,109 @@ class AndroidStyleMainWindow:
         except Exception as ex:
             self._show_snackbar(f"❌ Error inesperado: {str(ex)}", self.ERROR_COLOR)
 
-    def _show_add_class_dialog(self, e):
-        """Show add class dialog."""
-        self.add_class_dialog.content.value = ""  # Clear previous value
-        self.page.dialog = self.add_class_dialog
-        self.add_class_dialog.open = True
+    def _toggle_add_class_form(self, e=None):
+        """Toggle the add class form visibility."""
+        self.add_class_form.visible = not self.add_class_form.visible
+        if self.add_class_form.visible:
+            self.class_name_field.value = ""
+            self.class_name_field.focus()
         self.page.update()
 
-    def _close_add_class_dialog(self, e):
-        """Close add class dialog."""
-        self.add_class_dialog.open = False
-        self.page.update()
-
-    def _add_class(self, e):
-        """Add a new class."""
-        class_name = self.add_class_dialog.content.value.strip()
+    def _add_class_from_form(self, e):
+        """Add a new class from the form."""
+        class_name = self.class_name_field.value.strip()
         if class_name:
             if self.dataset_manager.add_class(class_name):
                 self.project_config.add_class(class_name)
                 self.project_config.save_config()
                 self._update_classes_display()
                 self._show_snackbar(f"✅ Clase '{class_name}' agregada", self.SUCCESS_COLOR)
+                self._toggle_add_class_form()
             else:
                 self._show_snackbar(f"❌ La clase '{class_name}' ya existe", self.ERROR_COLOR)
+        else:
+            self._show_snackbar("❌ Ingresa un nombre para la clase", self.ERROR_COLOR)
 
-        self._close_add_class_dialog(None)
+
+
+    def _view_class_images(self, class_name: str):
+        """View images in a class with ability to delete them."""
+        self.current_view_class = class_name
+        images = self.dataset_manager.get_class_images(class_name)
+        
+        if not images:
+            self._show_snackbar(f"📭 No hay imágenes en '{class_name}'", self.SECONDARY_COLOR)
+            return
+        
+        # Clear and populate images grid
+        self.images_grid.controls.clear()
+        self._show_snackbar(f"Viendo {len(images)} imágenes de '{class_name}'", self.SUCCESS_COLOR)
+        
+        for img in images:
+            img_path = img['path']
+            filename = img['filename']
+            
+            def create_delete_handler(path, fname):
+                def on_delete(e):
+                    self._delete_image(path, fname)
+                return on_delete
+            
+            # Create image card with delete button
+            img_card = ft.Container(
+                content=ft.Stack([
+                    ft.Image(
+                        src=img_path,
+                        fit=ft.ImageFit.COVER,
+                        border_radius=8,
+                    ),
+                    ft.Container(
+                        content=ft.IconButton(
+                            ft.Icons.DELETE,
+                            icon_color=self.ERROR_COLOR,
+                            icon_size=24,
+                            on_click=create_delete_handler(img_path, filename),
+                            tooltip="Eliminar imagen"
+                        ),
+                        alignment=ft.alignment.top_right,
+                        bgcolor=ft.Colors.with_opacity(0.7, ft.Colors.BLACK),
+                        padding=5,
+                        border_radius=8,
+                    )
+                ]),
+                width=150,
+                height=150,
+                border_radius=8,
+                border=ft.border.all(1, self.SURFACE_COLOR),
+            )
+            self.images_grid.controls.append(img_card)
+        
+        self.view_images_container.visible = True
+        self.page.update()
+
+    def _close_view_images(self, e):
+        """Close the view images container."""
+        self.view_images_container.visible = False
+        self.page.update()
+
+    def _delete_image(self, image_path: str, filename: str = None):
+        """Delete an image from the current class."""
+        if filename is None:
+            filename = os.path.basename(image_path)
+        
+        if self.dataset_manager.remove_image_from_class(self.current_view_class, filename):
+            # Remove from config if exists
+            dataset = self.project_config.config_data.get("dataset", {})
+            if "classes" in dataset and self.current_view_class in dataset["classes"]:
+                dataset["classes"][self.current_view_class] = [
+                    p for p in dataset["classes"][self.current_view_class] if os.path.basename(p) != filename
+                ]
+                dataset["total_images"] = sum(len(paths) for paths in dataset["classes"].values())
+            self.project_config.save_config()
+            self._update_classes_display()
+            self._view_class_images(self.current_view_class)  # Refresh
+            self._show_snackbar(f"✅ Imagen '{filename}' eliminada", self.SUCCESS_COLOR)
+        else:
+            self._show_snackbar(f"❌ Error al eliminar la imagen", self.ERROR_COLOR)
 
     def _delete_class(self, class_name: str):
         """Delete a class."""
@@ -594,56 +896,23 @@ class AndroidStyleMainWindow:
 
     def _upload_images_to_class(self, class_name: str):
         """Upload images to a class."""
+        self.current_upload_class = class_name
+        
         def pick_files_result(e: ft.FilePickerResultEvent):
             if e.files:
                 file_paths = [f.path for f in e.files]
                 success_count, error_count = self.dataset_manager.add_images_to_class(class_name, file_paths)
-
+                
                 if success_count > 0:
                     self._update_classes_display()
                     self._show_snackbar(f"✅ {success_count} imágenes agregadas a '{class_name}'", self.SUCCESS_COLOR)
                 if error_count > 0:
                     self._show_snackbar(f"⚠️ {error_count} archivos no válidos ignorados", self.ERROR_COLOR)
-
+        
         file_picker = ft.FilePicker(on_result=pick_files_result)
         self.page.overlay.append(file_picker)
         self.page.update()
-        file_picker.pick_files(allow_multiple=True, allowed_extensions=["jpg", "jpeg", "png", "bmp"])
-
-    def _view_class_images(self, class_name: str):
-        """View images in a class."""
-        images = self.dataset_manager.get_class_images(class_name, limit=20)
-
-        if not images:
-            self._show_snackbar(f"📭 No hay imágenes en la clase '{class_name}'", self.SECONDARY_COLOR)
-            return
-
-        # Create image gallery dialog
-        image_rows = []
-        for i in range(0, len(images), 4):  # 4 images per row
-            row_images = images[i:i+4]
-            row = ft.Row(
-                [ft.Image(src=img["path"], width=100, height=100, fit=ft.ImageFit.COVER)
-                 for img in row_images],
-                spacing=10
-            )
-            image_rows.append(row)
-
-        gallery_dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text(f"Imágenes en '{class_name}' ({len(images)})"),
-            content=ft.Container(
-                content=ft.Column(image_rows, scroll=ft.ScrollMode.AUTO, height=400),
-                width=500
-            ),
-            actions=[
-                ft.TextButton("Cerrar", on_click=lambda e: setattr(gallery_dialog, 'open', False) or self.page.update()),
-            ],
-        )
-
-        self.page.dialog = gallery_dialog
-        gallery_dialog.open = True
-        self.page.update()
+        file_picker.pick_files(allow_multiple=True, allowed_extensions=["jpg", "jpeg", "png", "bmp", "tiff", "webp"])
 
     def _start_quick_training(self, e):
         """Start quick training."""
@@ -744,117 +1013,3 @@ class AndroidStyleMainWindow:
             f"Última modificación: {project_info['last_modified'][:19]}"
         )
         self.page.update()
-        """
-        Main Window for the AI/ML Trainer App
-
-        Handles the overall layout and coordination of GUI components.
-        """
-
-import flet as ft
-from .model_selector import ModelSelector
-from .settings_panel import SettingsPanel
-from .task_selector import TaskSelector
-from .class_manager import ClassManager
-from .dataset_uploader import DatasetUploader
-from .training_controls import TrainingControls
-from .logs_visualization import LogsVisualization
-from .project_manager import ProjectManager
-from .project_list import ProjectList
-
-
-class MainWindow:
-    """
-    Main window class that orchestrates all GUI components.
-    """
-
-    def __init__(self, page: ft.Page, on_back_to_welcome=None):
-        self.page = page
-        self.on_back_to_welcome = on_back_to_welcome
-        self.model_selector = ModelSelector(page)
-        self.settings_panel = SettingsPanel(page)
-        self.task_selector = TaskSelector(page)
-        self.class_manager = ClassManager(page)
-        self.dataset_uploader = DatasetUploader(page, on_update=self._refresh_ui)
-        self.logs_visualization = LogsVisualization(page)
-
-        # Component references for project manager
-        self.component_refs = {
-            "task_selector": self.task_selector,
-            "model_selector": self.model_selector,
-            "settings_panel": self.settings_panel,
-            "class_manager": self.class_manager,
-            "dataset_uploader": self.dataset_uploader,
-        }
-
-        self.training_controls = TrainingControls(page, self.component_refs, self.logs_visualization.add_log)
-        self.project_manager = ProjectManager(page, self.component_refs)
-        self.project_list = ProjectList(page, self.project_manager)
-        self.project_manager.project_list = self.project_list
-
-    def _refresh_ui(self):
-        """Refresh the entire UI after loading project data."""
-        # Rebuild the main window content
-        self.page.controls.clear()
-        self.page.add(self.build())
-        self.page.update()
-
-    def build(self):
-        """
-        Build the main window layout.
-        """
-        return ft.Container(
-            content=ft.Column([
-                # App Bar
-                ft.Container(
-                    content=ft.Row([
-                        ft.IconButton(
-                            ft.Icons.ARROW_BACK,
-                            tooltip="Back to Welcome Screen",
-                            on_click=self.on_back_to_welcome if self.on_back_to_welcome else lambda e: None
-                        ),
-                        ft.Text("AI/ML Trainer", size=20, weight=ft.FontWeight.BOLD),
-                        ft.Container(expand=True),  # Spacer
-                        ft.Icon(ft.Icons.PSYCHOLOGY, size=24, color=ft.Colors.BLUE_600),
-                    ], alignment=ft.MainAxisAlignment.START),
-                    bgcolor=ft.Colors.BLUE_50,
-                    padding=ft.padding.symmetric(horizontal=20, vertical=10),
-                    border_radius=ft.border_radius.only(bottom_left=10, bottom_right=10),
-                ),
-
-                # Main content - Simple placeholder
-                ft.Container(
-                    content=ft.Column([
-                        ft.Container(height=100),  # Spacer
-                        ft.Icon(ft.Icons.CONSTRUCTION, size=64, color=ft.Colors.GREY_400),
-                        ft.Container(height=20),
-                        ft.Text(
-                            "Esta sección está en desarrollo",
-                            size=24,
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.GREY_600,
-                            text_align=ft.TextAlign.CENTER
-                        ),
-                        ft.Container(height=10),
-                        ft.Text(
-                            "Pronto agregaremos funciones reales para configurar, gestionar datos y entrenar modelos.",
-                            size=16,
-                            color=ft.Colors.GREY_500,
-                            text_align=ft.TextAlign.CENTER
-                        ),
-                        ft.Container(height=50),
-                        ft.Text(
-                            "🚧 Work in Progress 🚧",
-                            size=18,
-                            color=ft.Colors.ORANGE_400,
-                            text_align=ft.TextAlign.CENTER
-                        ),
-                    ], 
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    alignment=ft.MainAxisAlignment.CENTER),
-                    expand=True,
-                    padding=40
-                ),
-            ]),
-            expand=True,
-            padding=10
-        )
