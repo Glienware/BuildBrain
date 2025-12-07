@@ -120,12 +120,19 @@ class TrainingControls:
         task = self.components["task_selector"].task_type.value
         dataset = self.components["dataset_uploader"].dataset_path
         
+        # Get project directory from project manager
+        project_dir = "projects"  # default
+        if "project_manager" in self.components:
+            # Use projects directory for now
+            project_dir = "projects"
+        
         self.trainer = Trainer(
             model_type=model,
             task_type=task,
             hyperparameters=params,
             dataset_path=dataset,
-            log_callback=self.logs_callback
+            log_callback=self.logs_callback,
+            project_dir=project_dir
         )
         
         # Start training in thread
@@ -149,6 +156,10 @@ class TrainingControls:
             self.page.snack_bar = ft.SnackBar(ft.Text("Training completed!"))
             self.page.snack_bar.open = True
             self.export_btn.disabled = False
+            
+            # Save model path to project if available
+            if self.trainer.saved_model_path and "project_manager" in self.components:
+                self.components["project_manager"].save_trained_model(self.trainer.saved_model_path)
             
         except Exception as e:
             self._show_error(f"Training failed: {str(e)}")

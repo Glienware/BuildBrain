@@ -29,7 +29,7 @@ class WelcomeScreen:
         projects = []
         if os.path.exists(self.projects_dir):
             for filename in os.listdir(self.projects_dir):
-                if filename.endswith('.json'):
+                if filename.endswith('.buildb'):
                     try:
                         with open(os.path.join(self.projects_dir, filename), 'r') as f:
                             project_data = json.load(f)
@@ -196,6 +196,11 @@ class WelcomeScreen:
 
         return ft.Column(project_cards, spacing=10, scroll=ft.ScrollMode.AUTO)
 
+    def open_project(self, project_data):
+        """Open an existing project."""
+        if self.on_open_project:
+            self.on_open_project(project_data)
+
     def show_project_selector(self, e):
         """Show project selection dialog."""
         def close_dialog(e):
@@ -251,6 +256,8 @@ class WelcomeScreen:
 
     def show_welcome_screen(self):
         """Show the welcome screen again."""
+        # Refresh recent projects list
+        self.recent_projects = self.load_recent_projects()
         self.page.controls.clear()
         self.page.add(self.build())
         self.page.update()

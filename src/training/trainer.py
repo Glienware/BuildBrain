@@ -25,7 +25,7 @@ class Trainer:
     Main trainer class that handles different ML models.
     """
 
-    def __init__(self, model_type, task_type, hyperparameters, dataset_path, log_callback):
+    def __init__(self, model_type, task_type, hyperparameters, dataset_path, log_callback, project_dir=None):
         self.model_type = model_type
         self.task_type = task_type
         self.hyperparameters = hyperparameters
@@ -33,6 +33,30 @@ class Trainer:
         self.log_callback = log_callback
         self.model = None
         self.is_training = False
+        self.project_dir = project_dir or "projects"
+        self.saved_model_path = None
+
+    def _save_model(self, model_name):
+        """Save the trained model to disk."""
+        import os
+        os.makedirs(self.project_dir, exist_ok=True)
+
+        if self.model_type.startswith('PyTorch'):
+            # Save PyTorch model
+            model_path = os.path.join(self.project_dir, f"{model_name}.ptl")
+            torch.save(self.model, model_path)
+            self.log_callback(f"Model saved as: {model_path}")
+            self.saved_model_path = model_path
+            return model_path
+        else:
+            # For sklearn models, we could save with pickle or joblib
+            import pickle
+            model_path = os.path.join(self.project_dir, f"{model_name}.pkl")
+            with open(model_path, 'wb') as f:
+                pickle.dump(self.model, f)
+            self.log_callback(f"Model saved as: {model_path}")
+            self.saved_model_path = model_path
+            return model_path
 
     def start_training(self):
         """
@@ -136,7 +160,8 @@ class Trainer:
             self.log_callback(f"F1-Score: {report['weighted avg']['f1-score']:.4f}")
 
         self.log_callback("Training completed successfully!")
-        self.log_callback(f"Model saved as: {self.model}")
+        # Save the trained model
+        model_path = self._save_model(f"{self.model_type}_model")
 
     def _train_deep_learning_tabular(self, X, y):
         """Train deep learning models on tabular data."""
@@ -216,6 +241,8 @@ class Trainer:
         test_acc = 100. * test_correct / test_total
         self.log_callback(f"Test Accuracy: {test_acc:.2f}%")
         self.log_callback("Deep learning training completed!")
+        # Save the trained model
+        model_path = self._save_model(f"{self.model_type}_model")
 
     def _train_image_dataset(self):
         """Train models on image datasets."""

@@ -14,7 +14,7 @@ class ProjectManager:
     Manages project configurations and drafts.
     """
 
-    CONFIG_DIR = "config"
+    CONFIG_DIR = "projects"
 
     def __init__(self, page: ft.Page, components):
         self.page = page
@@ -121,7 +121,22 @@ class ProjectManager:
         if not self.load_project_dropdown.value:
             return
 
-        filename = f"{self.CONFIG_DIR}/{self.load_project_dropdown.value}.json"
+        # Try .buildb first, then .json
+        filename_buildb = f"{self.CONFIG_DIR}/{self.load_project_dropdown.value}.buildb"
+        filename_json = f"{self.CONFIG_DIR}/{self.load_project_dropdown.value}.json"
+        
+        filename = None
+        if os.path.exists(filename_buildb):
+            filename = filename_buildb
+        elif os.path.exists(filename_json):
+            filename = filename_json
+            
+        if not filename:
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Project file not found"))
+            self.page.snack_bar.open = True
+            self.page.update()
+            return
+
         try:
             with open(filename, 'r') as f:
                 config = json.load(f)
@@ -153,11 +168,27 @@ class ProjectManager:
         """
         try:
             files = os.listdir(self.CONFIG_DIR)
-            projects = [f.replace('.json', '') for f in files if f.endswith('.json')]
+            projects = []
+            for f in files:
+                if f.endswith('.json'):
+                    projects.append(f.replace('.json', ''))
+                elif f.endswith('.buildb'):
+                    projects.append(f.replace('.buildb', ''))
             self.load_project_dropdown.options = [ft.dropdown.Option(p) for p in projects]
         except:
             self.load_project_dropdown.options = []
-        self.page.update()
+            self.page.update()
+
+    def save_trained_model(self, model_path):
+        """
+        Save the path of the trained model to the current project.
+        """
+        if self.current_config:
+            self.current_config["trained_model_path"] = model_path
+            self._save_current_config()
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Model path saved: {model_path}"))
+            self.page.snack_bar.open = True
+            self.page.update()
 
     def build(self):
         """

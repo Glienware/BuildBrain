@@ -10,11 +10,10 @@
     "advanced_enabled": false
   },
   "classes": [
-    "Hombre",
-    "Mujeres"
+    "Hombres"
   ],
   "dataset_path": null,
   "dataset_type": null,
-  "created_at": "2025-12-06T18:56:11.637770",
-  "last_modified": "2025-12-06T18:57:02.008054"
+  "created_at": "2025-12-06T18:59:59.974847",
+  "last_modified": "2025-12-06T19:00:33.332860"
 }
