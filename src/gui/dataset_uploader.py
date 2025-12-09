@@ -31,7 +31,7 @@ class DatasetUploader:
                 self.classes[class_name] = []
 
     def build(self):
-        """Build the dataset uploader UI."""
+        """Build the dataset uploader UI with 2-column grid."""
         self.update_class_cards()
 
         content = [
@@ -62,10 +62,29 @@ class DatasetUploader:
                 )
             )
 
+        # Build 3-column grid of class cards
+        class_grid_rows = []
+        for i in range(0, len(self.class_cards), 3):
+            row_items = []
+            
+            # Add up to 3 cards per row
+            for j in range(3):
+                if i + j < len(self.class_cards):
+                    row_items.append(self.class_cards[i + j])
+                else:
+                    row_items.append(ft.Container(expand=True))
+            
+            class_grid_rows.append(
+                ft.Row(
+                    controls=row_items,
+                    spacing=12,
+                    expand=True,
+                )
+            )
+
         content.append(
             ft.Container(
-                content=ft.Column(self.class_cards, spacing=15, scroll=ft.ScrollMode.AUTO),
-                height=400,
+                content=ft.Column(class_grid_rows, spacing=12),
             )
         )
 
@@ -134,7 +153,6 @@ class DatasetUploader:
 
                     ], spacing=10),
                     padding=20,
-                    width=350
                 ),
                 elevation=3
             )

@@ -705,129 +705,156 @@ class NewProjectWizard:
                 ),
             ], spacing=0),
 
-            ft.Container(height=32),
+            ft.Container(height=24),
 
-            # Dataset uploader component
-            self.dataset_uploader.build(),
-
-            # Dataset summary
+            # Dataset uploader and summary - single scrollable container
             ft.Container(
-                content=self._build_dataset_summary(),
-                margin=ft.margin.only(top=16),
+                content=ft.Column([
+                    # Dataset uploader
+                    self.dataset_uploader.build(),
+                    
+                    ft.Container(height=24),
+                    
+                    # Dataset summary
+                    self._build_dataset_summary(),
+                ], spacing=0, scroll=ft.ScrollMode.AUTO),
+                expand=True,
             ),
 
-            ft.Container(expand=True),
         ], spacing=0, expand=True)
 
     def _build_dataset_summary(self):
-        """Build dataset summary card."""
+        """Build dataset summary card with responsive 2-column grid."""
         if not hasattr(self, 'dataset_uploader'):
             return ft.Container()
 
         dataset_info = self.dataset_uploader.get_dataset_info()
 
-        # Build class distribution items in a grid (2 columns)
+        # Build class distribution items - each card takes 50% width minus spacing
         class_items = []
         for class_name, images in dataset_info['classes'].items():
             num_images = len(images)
             percentage = (num_images / max(dataset_info['total_images'], 1)) * 100 if dataset_info['total_images'] > 0 else 0
             
-            class_items.append(
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text(class_name, size=13, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
-                        ft.Container(height=10),
-                        ft.Row([
-                            ft.Column([
-                                ft.Text("Imágenes", size=10, color="#888888"),
-                                ft.Container(height=4),
-                                ft.Text(str(num_images), size=18, weight=ft.FontWeight.BOLD, color="#3DDC84"),
-                            ], spacing=0),
-                            ft.Container(expand=True),
-                            ft.Column([
-                                ft.Text("Porcentaje", size=10, color="#888888"),
-                                ft.Container(height=4),
-                                ft.Text(f"{percentage:.1f}%", size=16, weight=ft.FontWeight.W_600, color="#82B1FF"),
-                            ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.END),
+            class_card = ft.Container(
+                content=ft.Column([
+                    ft.Text(class_name, size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ft.Container(height=12),
+                    ft.Row([
+                        ft.Column([
+                            ft.Text("Imágenes", size=11, color="#888888", weight=ft.FontWeight.W_500),
+                            ft.Container(height=6),
+                            ft.Text(str(num_images), size=20, weight=ft.FontWeight.BOLD, color="#3DDC84"),
                         ], spacing=0),
-                    ], spacing=0),
-                    padding=ft.padding.all(14),
-                    bgcolor="#0D0D0D",
-                    border_radius=8,
-                    border=ft.border.all(1, "#2D2D2D"),
+                        ft.Container(expand=True),
+                        ft.Column([
+                            ft.Text("Porcentaje", size=11, color="#888888", weight=ft.FontWeight.W_500),
+                            ft.Container(height=6),
+                            ft.Text(f"{percentage:.1f}%", size=18, weight=ft.FontWeight.W_600, color="#82B1FF"),
+                        ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.END),
+                    ], spacing=0, expand=True),
+                    
+                    # Progress bar
+                    ft.Container(height=12),
+                    ft.Container(
+                        content=ft.Container(
+                            bgcolor="#3DDC84",
+                            border_radius=2,
+                        ),
+                        height=4,
+                        bgcolor="#2D2D2D",
+                        border_radius=2,
+                    ),
+                ], spacing=0, expand=True),
+                padding=ft.padding.all(16),
+                bgcolor="#0D0D0D",
+                border_radius=8,
+                border=ft.border.all(1.5, "#2D2D2D"),
+                expand=True,
+            )
+            class_items.append(class_card)
+
+        # Create 2-column grid rows
+        grid_rows = []
+        for i in range(0, len(class_items), 2):
+            row_controls = []
+            
+            # First card
+            if i < len(class_items):
+                row_controls.append(class_items[i])
+            
+            # Second card or empty space
+            if i + 1 < len(class_items):
+                row_controls.append(class_items[i + 1])
+            else:
+                # Empty spacer to keep alignment
+                row_controls.append(ft.Container(expand=True))
+            
+            grid_rows.append(
+                ft.Row(
+                    controls=row_controls,
+                    spacing=12,
                     expand=True,
                 )
             )
 
-        # Arrange class items in a 2-column grid
-        class_grid = []
-        for i in range(0, len(class_items), 2):
-            row_items = []
-            if i < len(class_items):
-                row_items.append(class_items[i])
-            if i + 1 < len(class_items):
-                row_items.append(class_items[i + 1])
-            
-            if row_items:
-                class_grid.append(
-                    ft.Row(
-                        controls=row_items,
-                        spacing=12,
-                        expand=True,
-                    )
-                )
-
+        # Main summary container with scroll
         return ft.Container(
             content=ft.Column([
+                # Top stats
                 ft.Row([
-                    ft.Icon(ft.Icons.DATASET, size=22, color="#3DDC84"),
-                    ft.Container(width=16),
-                    ft.Text("Resumen del Dataset", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
-                ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                ft.Container(height=16),
-                
-                # Stats cards in a row
-                ft.Row([
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Clases", size=12, color="#888888"),
-                            ft.Container(height=6),
-                            ft.Text(str(dataset_info['num_classes']), size=24, weight=ft.FontWeight.BOLD, color="#3DDC84"),
-                        ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                        expand=True,
-                        bgcolor="#0D0D0D",
-                        padding=ft.padding.all(16),
-                        border_radius=8,
-                        border=ft.border.all(1, "#2D2D2D"),
-                    ),
+                    ft.Icon(ft.Icons.DATASET, size=24, color="#3DDC84"),
                     ft.Container(width=12),
+                    ft.Text("Resumen del Dataset", size=15, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                
+                ft.Container(height=20),
+                
+                # Stats row (responsive)
+                ft.Row([
+                    # Classes stat
                     ft.Container(
                         content=ft.Column([
-                            ft.Text("Total de Imágenes", size=12, color="#888888"),
-                            ft.Container(height=6),
-                            ft.Text(str(dataset_info['total_images']), size=24, weight=ft.FontWeight.BOLD, color="#82B1FF"),
+                            ft.Text("Clases", size=12, color="#888888", weight=ft.FontWeight.W_500),
+                            ft.Container(height=8),
+                            ft.Text(str(dataset_info['num_classes']), size=28, weight=ft.FontWeight.BOLD, color="#3DDC84"),
                         ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                         expand=True,
-                        bgcolor="#0D0D0D",
                         padding=ft.padding.all(16),
+                        bgcolor="#0D0D0D",
                         border_radius=8,
-                        border=ft.border.all(1, "#2D2D2D"),
+                        border=ft.border.all(1.5, "#2D2D2D"),
                     ),
-                ], spacing=0),
+                    
+                    ft.Container(width=12),
+                    
+                    # Total images stat
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Total de Imágenes", size=12, color="#888888", weight=ft.FontWeight.W_500),
+                            ft.Container(height=8),
+                            ft.Text(str(dataset_info['total_images']), size=28, weight=ft.FontWeight.BOLD, color="#82B1FF"),
+                        ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        expand=True,
+                        padding=ft.padding.all(16),
+                        bgcolor="#0D0D0D",
+                        border_radius=8,
+                        border=ft.border.all(1.5, "#2D2D2D"),
+                    ),
+                ], spacing=0, expand=True),
                 
-                ft.Container(height=16),
+                ft.Container(height=24),
                 
-                # Class distribution header
-                ft.Text("Distribución por Clase", size=12, color="#888888", weight=ft.FontWeight.BOLD),
-                ft.Container(height=10),
+                # Class distribution section
+                ft.Text("Distribución por Clase", size=13, color="#888888", weight=ft.FontWeight.W_600),
+                ft.Container(height=12),
                 
-                # Class grid (2 columns)
+                # Class grid (sin scroll, el padre se encarga)
                 ft.Column(
-                    controls=class_grid,
+                    controls=grid_rows,
                     spacing=12,
-                    scroll=ft.ScrollMode.AUTO,
                 ),
-            ], spacing=0),
+            ], spacing=0, expand=False),
             bgcolor="#1A1A1A",
             border=ft.border.all(1.5, "#2D2D2D"),
             border_radius=10,
