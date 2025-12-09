@@ -1005,8 +1005,12 @@ class AndroidStyleMainWindow:
     def _save_config(self, e):
         """Save configuration changes."""
         try:
+            # Get the old project name to check if it changed
+            old_project_name = self.project_config.get_setting("project_name", "")
+            new_project_name = self.config_fields["project_name"].value.strip()
+            
             # Update config values
-            self.project_config.update_setting("project_name", self.config_fields["project_name"].value)
+            self.project_config.update_setting("project_name", new_project_name)
             self.project_config.update_setting("model_type", self.config_fields["model_type"].value)
             self.project_config.update_setting("epochs", int(self.config_fields["epochs"].value))
             self.project_config.update_setting("batch_size", int(self.config_fields["batch_size"].value))
@@ -1023,6 +1027,10 @@ class AndroidStyleMainWindow:
 
             # Save to file
             if self.project_config.save_config():
+                # If project name changed, rename the project folder
+                if old_project_name != new_project_name and new_project_name:
+                    self._rename_project_folder(old_project_name, new_project_name)
+                
                 self._show_snackbar("✅ Configuración guardada exitosamente", self.SUCCESS_COLOR)
                 # Update status bar
                 self._update_status_bar()
@@ -1033,6 +1041,51 @@ class AndroidStyleMainWindow:
             self._show_snackbar(f"❌ Error en los valores: {str(ve)}", self.ERROR_COLOR)
         except Exception as ex:
             self._show_snackbar(f"❌ Error inesperado: {str(ex)}", self.ERROR_COLOR)
+
+    def _rename_project_folder(self, old_name: str, new_name: str):
+        """Rename the project folder."""
+        try:
+            import shutil
+            
+            # Get the parent directory of the project
+            projects_parent = os.path.dirname(self.project_path)
+            old_project_path = os.path.join(projects_parent, old_name)
+            new_project_path = os.path.join(projects_parent, new_name)
+            
+            # Check if old folder exists
+            if not os.path.exists(old_project_path):
+                # The folder might have already been renamed or doesn't exist
+                self._show_snackbar(f"⚠️ Carpeta original no encontrada", self.ERROR_COLOR)
+                return
+            
+            # Check if new folder already exists
+            if os.path.exists(new_project_path):
+                self._show_snackbar(f"❌ Ya existe una carpeta con ese nombre", self.ERROR_COLOR)
+                return
+            
+            # Rename the folder
+            shutil.move(old_project_path, new_project_path)
+            
+            # Update the project path in the current instance
+            self.project_path = new_project_path
+            self.project_config.project_path = new_project_path
+            self.dataset_manager.dataset_path = os.path.join(new_project_path, "dataset")
+            self.trainer.project_dir = new_project_path
+            
+            # Update the window title
+            self.app_bar.title = ft.Text(
+                f"BuildBrain - {new_name}",
+                size=16,
+                weight=ft.FontWeight.BOLD,
+                color=self.TEXT_PRIMARY
+            )
+            
+            self._show_snackbar(f"✅ Carpeta renombrada a '{new_name}'", self.SUCCESS_COLOR)
+            self.page.update()
+            
+        except Exception as ex:
+            self._show_snackbar(f"❌ Error renombrando carpeta: {str(ex)}", self.ERROR_COLOR)
+            print(f"Error renaming project folder: {str(ex)}")
 
     def _toggle_add_class_form(self, e=None):
         """Toggle the add class form visibility."""

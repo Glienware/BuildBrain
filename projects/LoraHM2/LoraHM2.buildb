@@ -1,0 +1,25 @@
+{
+  "project_name": "LoraHM2",
+  "task_type": "classification",
+  "model_type": "PyTorch_CNN",
+  "training_settings": {
+    "epochs": 50,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "optimizer": "adam",
+    "loss_function": "cross_entropy",
+    "scheduler": "none",
+    "weight_decay": 0.0,
+    "momentum": 0.9,
+    "data_augmentation": true,
+    "validation_split": 0.2,
+    "early_stopping": false,
+    "patience": 10,
+    "advanced_enabled": false
+  },
+  "classes": [],
+  "dataset_path": null,
+  "dataset_type": "image_folder",
+  "created_at": "2025-12-08T20:28:30.749056",
+  "last_modified": "2025-12-08T20:28:30.749117"
+}

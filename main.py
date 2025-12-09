@@ -26,6 +26,7 @@ class AppController:
 
     def show_welcome_screen(self, e=None):
         """Show the welcome screen."""
+        # Reload recent projects to catch any changes (like renamed projects)
         if self.welcome_screen is None:
             self.welcome_screen = WelcomeScreen(
                 self.page,
@@ -33,14 +34,26 @@ class AppController:
                 on_open_project=self.on_open_project,
                 on_project_created=self.on_project_created
             )
+        else:
+            # Refresh the recent projects list
+            self.welcome_screen.recent_projects = self.welcome_screen.load_recent_projects()
+        
+        # Reset main window so it doesn't retain old state
+        self.main_window = None
+        
         self.current_view = self.welcome_screen.build()
         self.page.controls.clear()
         self.page.add(self.current_view)
         self.page.update()
 
-    def show_main_window(self, project_name: str):
-        """Show the main application window."""
-        project_path = os.path.join(self.projects_dir, project_name)
+    def show_main_window(self, project_identifier: str):
+        """Show the main application window. Can be a project name or full path."""
+        # Check if it's already a full path
+        if os.path.isabs(project_identifier) and os.path.isdir(project_identifier):
+            project_path = project_identifier
+        else:
+            # It's a project name, construct the path
+            project_path = os.path.join(self.projects_dir, project_identifier)
 
         if self.main_window is None:
             self.main_window = AndroidStyleMainWindow(
@@ -66,8 +79,14 @@ class AppController:
 
     def on_open_project(self, project_data):
         """Handle opening existing project."""
-        project_name = project_data.get("project_name", "unknown_project")
-        self.show_main_window(project_name)
+        # Use the path directly if available, otherwise construct it from project name
+        if 'path' in project_data:
+            project_path = project_data['path']
+        else:
+            project_name = project_data.get("project_name", "unknown_project")
+            project_path = os.path.join(self.projects_dir, project_name)
+        
+        self.show_main_window(project_path)
 
 
 def main(page: ft.Page):

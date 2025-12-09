@@ -31,12 +31,22 @@ class WelcomeScreen:
             for item in os.listdir(self.projects_dir):
                 item_path = os.path.join(self.projects_dir, item)
                 if os.path.isdir(item_path):
+                    # First try to find the file with the folder name
                     buildb_file = os.path.join(item_path, f"{item}.buildb")
+                    
+                    # If not found, search for any .buildb file in the directory
+                    if not os.path.exists(buildb_file):
+                        for file in os.listdir(item_path):
+                            if file.endswith('.buildb'):
+                                buildb_file = os.path.join(item_path, file)
+                                break
+                    
                     if os.path.exists(buildb_file):
                         try:
                             with open(buildb_file, 'r') as f:
                                 project_data = json.load(f)
-                                project_data['filename'] = f"{item}.buildb"
+                                project_data['filename'] = os.path.basename(buildb_file)
+                                project_data['path'] = item_path
                                 projects.append(project_data)
                         except:
                             pass
