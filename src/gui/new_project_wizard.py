@@ -113,23 +113,23 @@ class NewProjectWizard:
                         # Left Sidebar - Step Indicator
                         ft.Container(
                             content=ft.Column([
-                                ft.Container(height=8),
-                                ft.Text("Pasos", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                ft.Container(height=16),
+                                ft.Container(height=4),
+                                ft.Text("Pasos", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                ft.Container(height=10),
                                 self.step_indicator,
                                 ft.Container(expand=True),
                                 # Footer info
                                 ft.Divider(color="#2D2D2D", height=1),
-                                ft.Container(height=12),
+                                ft.Container(height=8),
                                 ft.Text(
                                     f"Paso {self.current_step + 1} de {len(self.steps)}",
-                                    size=11,
+                                    size=10,
                                     color="#888888"
                                 ),
                             ], spacing=0, expand=True),
-                            width=300,
+                            width=280,
                             bgcolor="#1A1A1A",
-                            padding=ft.padding.symmetric(horizontal=20, vertical=20),
+                            padding=ft.padding.symmetric(horizontal=14, vertical=12),
                             border=ft.border.only(right=ft.border.BorderSide(1.5, "#2D2D2D"))
                         ),
 
@@ -190,27 +190,27 @@ class NewProjectWizard:
                             content=ft.Stack([
                                 # Background circle
                                 ft.Container(
-                                    width=44,
-                                    height=44,
+                                    width=40,
+                                    height=40,
                                     bgcolor=bg_color,
-                                    border_radius=22,
+                                    border_radius=20,
                                 ),
                                 # Icon or number
                                 ft.Container(
-                                    content=ft.Icon(ft.Icons.CHECK, size=22, color=ft.Colors.WHITE) if is_completed
+                                    content=ft.Icon(ft.Icons.CHECK, size=20, color=ft.Colors.WHITE) if is_completed
                                     else ft.Text(
                                         str(i + 1),
-                                        size=18,
+                                        size=16,
                                         weight=ft.FontWeight.BOLD,
                                         color=text_color,
                                     ),
-                                    width=44,
-                                    height=44,
+                                    width=40,
+                                    height=40,
                                     alignment=ft.alignment.center,
                                 ),
-                            ], width=44, height=44),
-                            width=44,
-                            height=44,
+                            ], width=40, height=40),
+                            width=40,
+                            height=40,
                         ),
 
                         # Step text
@@ -218,23 +218,23 @@ class NewProjectWizard:
                             content=ft.Column([
                                 ft.Text(
                                     f"Paso {i + 1}: {step_name}",
-                                    size=13,
+                                    size=11,
                                     weight=ft.FontWeight.W_600,
                                     color=text_color,
                                 ),
                                 ft.Text(
                                     self._get_step_description(i),
-                                    size=10,
+                                    size=9,
                                     color=desc_color if is_active else "#666666",
                                     max_lines=2,
                                 ),
-                            ], spacing=3, tight=True),
-                            padding=ft.padding.only(left=12),
+                            ], spacing=2, tight=True),
+                            padding=ft.padding.only(left=10),
                             expand=True,
                         ),
                     ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=ft.padding.symmetric(horizontal=12, vertical=14),
-                    border_radius=10,
+                    padding=ft.padding.symmetric(horizontal=10, vertical=10),
+                    border_radius=8,
                     bgcolor=highlight_bg,
                     border=ft.border.all(1.5, bg_color) if is_active else None,
                 )
