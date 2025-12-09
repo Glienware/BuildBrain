@@ -44,12 +44,12 @@ class NewProjectWizard:
         # UI state
         self.current_step = 0
         self.steps = [
-            "Project Name",
-            "Task Configuration",
-            "Class Management",
-            "Balanced Class",
-            "Dataset Upload",
-            "Training & Logs"
+            "Nombre del Proyecto",
+            "Configuración de Tareas",
+            "Gestión de Clases",
+            "Clases Balanceadas",
+            "Cargar Dataset",
+            "Entrenamiento y Logs"
         ]
 
         # UI components
@@ -74,10 +74,13 @@ class NewProjectWizard:
                         ft.IconButton(
                             ft.Icons.CLOSE,
                             on_click=self._show_cancel_dialog,
-                            tooltip="Cancel"
+                            tooltip="Cancelar",
+                            icon_size=28
                         ),
-                        ft.Text("Create New Model", size=24, weight=ft.FontWeight.BOLD),
-                        ft.Container(expand=True),
+                        ft.Container(width=10),
+                        ft.Column([
+                            ft.Text("Crear Nuevo Modelo", size=24, weight=ft.FontWeight.BOLD),
+                        ], expand=True),
                         ft.Row([
                             self.back_button,
                             ft.Container(width=10),
@@ -85,7 +88,7 @@ class NewProjectWizard:
                         ], spacing=0),
                         ft.Container(width=20),
                         ft.Text("AI/ML Trainer", size=14, color=ft.Colors.GREY_600),
-                    ], alignment=ft.MainAxisAlignment.START),
+                    ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     bgcolor=ft.Colors.GREY_800,
                     padding=ft.padding.all(20),
                 ),
@@ -184,12 +187,12 @@ class NewProjectWizard:
     def _get_step_description(self, step_index):
         """Get description for each step."""
         descriptions = [
-            "Name your project",
-            "Configure model and training",
-            "Define classes",
-            "Check class balance",
-            "Upload dataset",
-            "Train and monitor"
+            "Nombra tu proyecto",
+            "Configura el modelo y entrenamiento",
+            "Define las clases",
+            "Verifica el balance de clases",
+            "Carga el dataset",
+            "Entrena y monitorea"
         ]
         return descriptions[step_index]
 
@@ -234,8 +237,8 @@ class NewProjectWizard:
     def _build_project_name_step(self):
         """Build project name input step."""
         project_name_field = ft.TextField(
-            label="Project Name",
-            hint_text="Enter a name for your ML project",
+            label="Nombre del Proyecto",
+            hint_text="Ingresa un nombre para tu proyecto ML",
             value=self.project_data["project_name"],
             on_change=lambda e: self._update_project_name(e.data),
             width=400,
@@ -244,8 +247,8 @@ class NewProjectWizard:
 
         return ft.Container(
             content=ft.Column([
-                ft.Text("Project Name", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
-                ft.Text("Give your machine learning project a meaningful name", size=16, color=ft.Colors.GREY_600),
+                ft.Text("Nombre del Proyecto", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
+                ft.Text("Dale a tu proyecto de aprendizaje automático un nombre significativo", size=16, color=ft.Colors.GREY_600),
                 ft.Container(height=40),
 
                 ft.Card(
@@ -599,66 +602,85 @@ class NewProjectWizard:
     def _build_navigation_buttons(self):
         """Build navigation buttons."""
         self.back_button = ft.ElevatedButton(
-            "Back",
+            "Atrás",
             icon=ft.Icons.ARROW_BACK,
             on_click=self._go_back,
             disabled=self.current_step == 0,
             style=ft.ButtonStyle(bgcolor=ft.Colors.GREY_700, color=ft.Colors.WHITE),
         )
 
-        next_text = "Complete" if self.current_step == len(self.steps) - 1 else "Next"
+        next_text = "Completar" if self.current_step == len(self.steps) - 1 else "Siguiente"
         self.next_button = ft.ElevatedButton(
             next_text,
-            icon=ft.Icons.ARROW_FORWARD if next_text != "Complete" else ft.Icons.CHECK,
+            icon=ft.Icons.ARROW_FORWARD if next_text != "Completar" else ft.Icons.CHECK,
             on_click=self._go_next,
             style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_400, color=ft.Colors.BLACK),
         )
 
     def _show_cancel_dialog(self, e):
         """Show cancel confirmation dialog."""
-        def close_dialog(e):
-            dlg.open = False
+        def close_dialog(e=None):
+            for ctrl in self.page.overlay:
+                if isinstance(ctrl, ft.Container) and hasattr(ctrl, 'data') and ctrl.data == 'cancel_dialog':
+                    self.page.overlay.remove(ctrl)
+                    break
             self.page.update()
 
         def confirm_cancel(e):
-            dlg.open = False
-            self.page.update()
-            self.on_cancel(e)
+            close_dialog()
+            if self.on_cancel:
+                self.on_cancel(e)
 
-        dlg = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Cancel Project Creation"),
-            content=ft.Text("Are you sure you want to cancel? All progress will be lost and not saved."),
-            actions=[
-                ft.TextButton("Continue Creating", on_click=close_dialog),
-                ft.ElevatedButton(
-                    "Cancel & Exit",
-                    on_click=confirm_cancel,
-                    style=ft.ButtonStyle(bgcolor=ft.Colors.RED_600, color=ft.Colors.WHITE)
-                ),
-            ],
-            actions_alignment=ft.MainAxisAlignment.END,
+        # Create modal content
+        modal_content = ft.Container(
+            content=ft.Column([
+                ft.Text("Cancelar Creación de Proyecto", size=20, weight=ft.FontWeight.BOLD),
+                ft.Container(height=15),
+                ft.Text("¿Estás seguro de que deseas cancelar? Todos los cambios se perderán.", size=14),
+                ft.Container(height=20),
+                ft.Row([
+                    ft.ElevatedButton(
+                        "Continuar Creando",
+                        on_click=close_dialog,
+                        style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_600),
+                        expand=True
+                    ),
+                    ft.Container(width=10),
+                    ft.ElevatedButton(
+                        "Cancelar y Salir",
+                        on_click=confirm_cancel,
+                        style=ft.ButtonStyle(bgcolor=ft.Colors.RED_600, color=ft.Colors.WHITE),
+                        expand=True
+                    ),
+                ], spacing=10),
+            ], spacing=10),
+            bgcolor=ft.Colors.GREY_800,
+            padding=25,
+            border_radius=12,
+            width=400,
+            shadow=ft.BoxShadow(blur_radius=20, color="000000")
         )
 
-        self.page.dialog = dlg
-        dlg.open = True
+        # Create overlay
+        overlay = ft.Container(
+            content=ft.Column([
+                ft.Container(expand=True),
+                ft.Row([
+                    ft.Container(expand=True),
+                    modal_content,
+                    ft.Container(expand=True)
+                ]),
+                ft.Container(expand=True)
+            ]),
+            bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+            alignment=ft.alignment.center,
+            expand=True,
+            on_click=close_dialog
+        )
+        overlay.data = 'cancel_dialog'
+        
+        self.page.overlay.append(overlay)
         self.page.update()
-        """Build navigation buttons."""
-        self.back_button = ft.ElevatedButton(
-            "Back",
-            icon=ft.Icons.ARROW_BACK,
-            on_click=self._go_back,
-            disabled=self.current_step == 0,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.GREY_600, color=ft.Colors.WHITE),
-        )
-
-        next_text = "Complete" if self.current_step == len(self.steps) - 1 else "Next"
-        self.next_button = ft.ElevatedButton(
-            next_text,
-            icon=ft.Icons.ARROW_FORWARD if next_text != "Complete" else ft.Icons.CHECK,
-            on_click=self._go_next,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE),
-        )
 
     def _go_next(self, e):
         """Go to next step."""
