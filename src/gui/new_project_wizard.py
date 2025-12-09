@@ -7,6 +7,8 @@ Step-by-step wizard similar to Android Studio for creating new ML projects.
 import flet as ft
 import os
 import json
+import time
+import threading
 from datetime import datetime
 from typing import Dict, Any
 from .dataset_uploader import DatasetUploader
@@ -378,6 +380,16 @@ class NewProjectWizard:
         """Refresh the current step content."""
         # Rebuild the content area
         self.content_area.content = self._build_content_area()
+    
+    def _refresh_dataset_uploader(self):
+        """Refresh only the dataset uploader part."""
+        print("DEBUG: Dataset update detected, page will refresh")
+        # Just mark that we need an update - the page update happens automatically
+        # when on_update callback is called from the main Flet thread
+        try:
+            self.page.update()
+        except Exception as e:
+            print(f"DEBUG: Could not update immediately: {e}")
 
     def _build_project_name_step(self):
         """Build project name input step."""
@@ -992,6 +1004,36 @@ class NewProjectWizard:
             padding=ft.padding.all(20),
         )
 
+    def _copy_logs(self, e):
+        """Copy logs to clipboard."""
+        try:
+            import pyperclip
+            # Extract text from all log entries
+            log_text = ""
+            for control in self.training_logs.controls:
+                if isinstance(control, ft.Row):
+                    # Each row has timestamp and message
+                    row_text = ""
+                    for item in control.controls:
+                        if isinstance(item, ft.Text):
+                            row_text += item.value
+                    if row_text:
+                        log_text += row_text + "\n"
+            
+            if log_text.strip():
+                pyperclip.copy(log_text)
+                self.page.snack_bar = ft.SnackBar(ft.Text("✓ Logs copiados al portapapeles!"))
+                self.page.snack_bar.open = True
+                self.page.update()
+            else:
+                self.page.snack_bar = ft.SnackBar(ft.Text("No hay logs para copiar", color=ft.Colors.ORANGE))
+                self.page.snack_bar.open = True
+                self.page.update()
+        except Exception as ex:
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Error al copiar: {str(ex)}", color=ft.Colors.RED))
+            self.page.snack_bar.open = True
+            self.page.update()
+
     def _build_training_logs_step(self):
         """Build model creation and logs step."""
         # Create model button
@@ -1064,6 +1106,13 @@ class NewProjectWizard:
                         ft.Icon(ft.Icons.INFO_OUTLINE, size=22, color="#82B1FF"),
                         ft.Container(width=16),
                         ft.Text("Logs del Proceso", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                        ft.Container(expand=True),
+                        ft.IconButton(
+                            icon=ft.Icons.CONTENT_COPY,
+                            on_click=self._copy_logs,
+                            tooltip="Copiar logs al portapapeles",
+                            icon_color="#82B1FF",
+                        ),
                     ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     ft.Container(height=16),
                     ft.Container(
@@ -1509,8 +1558,8 @@ class NewProjectWizard:
         
         try:
             # Get project data
-            project_name = self.project_name.value
-            model_type = self.selected_model.value if self.selected_model else "LogisticRegression"
+            project_name = self.project_data["project_name"]
+            model_type = self.project_data.get("model_type", "LogisticRegression")
             
             # Create project directory
             import time
@@ -1536,8 +1585,8 @@ class NewProjectWizard:
                 "hyperparameters": ModelFactory.get_default_hyperparameters(model_type),
                 "dataset_info": {
                     "path": "",
-                    "classes": getattr(self, 'class_names_input', {}).value if hasattr(self, 'class_names_input') else "",
-                    "balanced": getattr(self, 'balance_dataset_switch', False).value if hasattr(self, 'balance_dataset_switch') else False,
+                    "classes": self.project_data.get("classes", []),
+                    "balanced": False,
                 }
             }
             
@@ -1800,13 +1849,22 @@ class NewProjectWizard:
 
     def _on_dataset_updated(self):
         """Callback when dataset is updated."""
+        print("DEBUG: _on_dataset_updated called")
+        
         # Capture dataset path for training
         if hasattr(self, 'dataset_uploader'):
             self.dataset_path = self.dataset_uploader.dataset_path
+            print(f"DEBUG: Dataset path updated to: {self.dataset_path}")
         
-        # Refresh UI
-        if hasattr(self, '_refresh_current_step'):
-            self._refresh_current_step()
+        # Refresh only the dataset uploader UI
+        try:
+            print("DEBUG: Calling _refresh_dataset_uploader")
+            self._refresh_dataset_uploader()
+            print("DEBUG: _refresh_dataset_uploader completed")
+        except Exception as e:
+            print(f"DEBUG: Error in _on_dataset_updated: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _complete_wizard(self):
         """Complete the wizard and save project."""

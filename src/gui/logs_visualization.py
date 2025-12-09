@@ -119,6 +119,28 @@ class LogsVisualization:
                 
         self.page.update()
 
+    def copy_logs(self, e):
+        """
+        Copy all logs to clipboard.
+        """
+        try:
+            import pyperclip
+            pyperclip.copy(self.logs.value)
+            self.page.snack_bar = ft.SnackBar(ft.Text("Logs copied to clipboard!"))
+            self.page.snack_bar.open = True
+            self.page.update()
+        except ImportError:
+            # Fallback: use Flet's clipboard functionality if available
+            try:
+                self.page.set_clipboard(self.logs.value)
+                self.page.snack_bar = ft.SnackBar(ft.Text("Logs copied to clipboard!"))
+                self.page.snack_bar.open = True
+                self.page.update()
+            except Exception as ex:
+                self.page.snack_bar = ft.SnackBar(ft.Text(f"Copy failed: {str(ex)}", color=ft.Colors.RED))
+                self.page.snack_bar.open = True
+                self.page.update()
+
     def build(self):
         """
         Build the logs and visualization UI.
@@ -128,7 +150,12 @@ class LogsVisualization:
                 ft.Row([
                     ft.Icon(ft.Icons.ASSESSMENT, size=24),
                     ft.Text("Training Logs & Visualization", size=16, weight=ft.FontWeight.BOLD),
-                ], alignment=ft.MainAxisAlignment.START),
+                    ft.IconButton(
+                        icon=ft.Icons.CONTENT_COPY,
+                        on_click=self.copy_logs,
+                        tooltip="Copy logs to clipboard"
+                    )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 ft.Container(
                     content=self.logs,
                     height=200,

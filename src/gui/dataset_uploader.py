@@ -6,9 +6,19 @@ Handles uploading image datasets organized by classes.
 
 import flet as ft
 import os
-import json
-import threading
-import sys
+from tkinter import Tk, filedialog
+from typing import Dict, List, Optional
+
+
+def _open_folder_dialog(title: str) -> Optional[str]:
+    root = Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    try:
+        path = filedialog.askdirectory(title=title, initialdir=os.path.expanduser("~"))
+    finally:
+        root.destroy()
+    return path or None
 
 
 class DatasetUploader:
@@ -20,12 +30,11 @@ class DatasetUploader:
         self.page = page
         self.file_picker = ft.FilePicker(on_result=self.on_files_selected)
         self.page.overlay.append(self.file_picker)
-        self.classes = {}  # {class_name: [image_paths]}
-        self.class_cards = []
+        self.classes: Dict[str, List[str]] = {}
+        self.class_cards: List[ft.Card] = []
         self.on_update = on_update  # Callback to notify parent of updates
         self.dataset_path = None  # For compatibility with training system
         self.current_class = None  # Track which class is being edited
-        self.selecting_folder = False  # Flag to indicate folder selection mode
 
         # Initialize with existing classes if provided
         if existing_classes:
@@ -227,10 +236,7 @@ class DatasetUploader:
         if class_name in self.classes:
             del self.classes[class_name]
             self.update_class_cards()
-            if self.on_update:
-                self.on_update()
-            else:
-                self.page.update()
+            self._trigger_update()
 
     def select_csv_file(self, e):
         """Select a CSV or Excel file with dataset."""
@@ -256,64 +262,9 @@ class DatasetUploader:
     def select_folder_for_class(self, class_name):
         """Select a folder of images for a class."""
         self.current_class = class_name
-        self.selecting_folder = True
-        
-        # Run folder selection in a separate thread (NOT daemon)
-        thread = threading.Thread(
-            target=self._select_folder_thread,
-            args=(class_name,)
-        )
-        thread.start()
-
-    def _select_folder_thread(self, class_name):
-        """Thread function to handle folder selection using Windows API."""
-        try:
-            if sys.platform == 'win32':
-                # Use Windows native folder picker via PowerShell
-                import subprocess
-                
-                ps_command = f"""
-[System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null;
-$folder = New-Object System.Windows.Forms.FolderBrowserDialog;
-$folder.Description = "Select folder with images for '{class_name}'";
-$folder.ShowNewFolderButton = $true;
-$result = $folder.ShowDialog();
-if ($result -eq "OK") {{ 
-    Write-Host $folder.SelectedPath 
-}}
-"""
-                
-                result = subprocess.run(
-                    ['powershell', '-NoProfile', '-Command', ps_command],
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
-                
-                folder_path = result.stdout.strip()
-                print(f"DEBUG: PowerShell returned: '{folder_path}'")
-                
-                if folder_path and os.path.exists(folder_path):
-                    print(f"DEBUG: Folder exists, loading images")
-                    self.load_images_from_folder(class_name, folder_path)
-                else:
-                    print(f"DEBUG: No folder selected or path invalid: {folder_path}")
-            else:
-                # For Linux/Mac, use zenity or similar
-                import subprocess
-                result = subprocess.run([
-                    'zenity', '--file-selection', '--directory',
-                    '--title=Select folder with images for ' + class_name
-                ], capture_output=True, text=True)
-                
-                folder_path = result.stdout.strip()
-                if folder_path and os.path.exists(folder_path):
-                    self.load_images_from_folder(class_name, folder_path)
-            
-        except Exception as ex:
-            print(f"Error in folder selection: {ex}")
-            import traceback
-            traceback.print_exc()
+        folder_path = _open_folder_dialog(f"Select folder for '{class_name}'")
+        if folder_path:
+            self.load_images_from_folder(class_name, folder_path)
 
     def on_files_selected(self, e: ft.FilePickerResultEvent):
         """Handle multiple file selection - can be images or CSV."""
@@ -364,32 +315,14 @@ if ($result -eq "OK") {{
                     if class_name not in self.classes:
                         self.classes[class_name] = []
 
-                    # If selecting folder, get the parent directory path
-                    if self.selecting_folder and e.files:
-                        # Get common directory from selected files
-                        first_file = e.files[0].path
-                        folder_path = os.path.dirname(first_file)
-                        
-                        # Load ALL images from that folder
-                        image_count = 0
-                        for file in e.files:
-                            if file.path and file.path not in self.classes[class_name]:
-                                self.classes[class_name].append(file.path)
-                                image_count += 1
-                        
-                        print(f"Loaded {image_count} images from folder to class '{class_name}'")
-                        self.dataset_path = folder_path
-                        self.selecting_folder = False
-                    else:
-                        # Regular image selection (one by one)
-                        image_count = 0
-                        for file in e.files:
-                            if file.path and file.path not in self.classes[class_name]:
-                                self.classes[class_name].append(file.path)
-                                image_count += 1
+                    image_count = 0
+                    for file in e.files:
+                        if file.path and file.path not in self.classes[class_name]:
+                            self.classes[class_name].append(file.path)
+                            image_count += 1
 
-                        print(f"Added {image_count} images to class '{class_name}'")
-                        self.dataset_path = class_name
+                    print(f"Added {image_count} images to class '{class_name}'")
+                    self.dataset_path = class_name
                     
                     self.update_class_cards()
                     if self.on_update:
