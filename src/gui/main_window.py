@@ -796,6 +796,7 @@ class AndroidStyleMainWindow:
             options=[]
         )
         self.test_model_label = ft.Text("No hay modelo cargado", size=12, color=self.TEXT_SECONDARY)
+        self.test_status_label = ft.Text("⏹️ Inactivo", size=11, color=self.TEXT_SECONDARY)
         self.test_image_label = ft.Text("Selecciona una imagen", size=12, color=self.TEXT_SECONDARY)
         self.test_result_container = ft.Column(spacing=10)
         self.test_image_display = ft.Container(
@@ -823,6 +824,8 @@ class AndroidStyleMainWindow:
             self.test_model_dropdown.value = None
             self.test_model_label.value = "No hay modelo cargado"
             self.test_model_label.color = self.TEXT_SECONDARY
+            self.test_status_label.value = "⏹️ Inactivo"
+            self.test_status_label.color = self.TEXT_SECONDARY
             self.test_image_label.value = "Selecciona una imagen"
             self.test_result_container.controls.clear()
             self.test_image_display.content = ft.Text("📷 Imagen no cargada", color=self.TEXT_SECONDARY)
@@ -883,7 +886,7 @@ class AndroidStyleMainWindow:
                         ft.Container(height=10),
                         ft.Row([
                             ft.Text("Estado:", size=11, weight=ft.FontWeight.BOLD, width=80),
-                            self.test_model_label if self.test_model_loaded else ft.Text("Inactivo", size=11, color=self.TEXT_SECONDARY),
+                            self.test_status_label,
                         ]),
                     ], spacing=5),
                     bgcolor=self.BACKGROUND_LIGHT,
@@ -1377,8 +1380,8 @@ class AndroidStyleMainWindow:
         if "✅ Training completed" in message or "✅ Training completed!" in message:
             self.training_active = False
             self._update_training_buttons()
-            # Schedule metrics update for next frame
-            self.page.run_task(self._update_metrics_display)
+            # Update metrics display
+            self._update_metrics_display()
 
         # Auto-scroll to bottom and update page only if control is added to page
         if hasattr(self.logs_display, 'page') and self.logs_display.page is not None:
@@ -1428,15 +1431,23 @@ class AndroidStyleMainWindow:
                 self.test_model_label.value = f"✅ Cargado\n📦 {model_name}\n🎓 {num_classes} clases\n💾 {file_size:.2f} MB"
                 self.test_model_label.color = self.SUCCESS_COLOR
                 
+                # Update status
+                self.test_status_label.value = f"✅ Listo - {num_classes} clases"
+                self.test_status_label.color = self.SUCCESS_COLOR
+                
                 # Show classes info
                 self._show_snackbar(f"✅ Modelo cargado - Clases: {classes_str}", self.SUCCESS_COLOR)
             else:
                 self.test_model_label.value = "❌ Error al cargar modelo"
                 self.test_model_label.color = self.ERROR_COLOR
+                self.test_status_label.value = "❌ Error"
+                self.test_status_label.color = self.ERROR_COLOR
                 self._show_snackbar("❌ Error al cargar modelo", self.ERROR_COLOR)
         except Exception as e:
             self.test_model_label.value = "❌ Error"
             self.test_model_label.color = self.ERROR_COLOR
+            self.test_status_label.value = "❌ Error"
+            self.test_status_label.color = self.ERROR_COLOR
             self._show_snackbar(f"❌ Error: {str(e)}", self.ERROR_COLOR)
         
         self.page.update()

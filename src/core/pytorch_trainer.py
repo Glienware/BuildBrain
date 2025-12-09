@@ -18,6 +18,7 @@ from typing import Dict, List, Callable, Optional, Any
 from datetime import datetime
 import numpy as np
 import matplotlib
+import traceback
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 plt.ioff()  # Turn off interactive mode
@@ -381,7 +382,9 @@ class PyTorchTrainer:
             )
 
         except Exception as e:
+            error_msg = traceback.format_exc()
             self.log_callback(f"❌ Training error: {str(e)}")
+            self.log_callback(f"📋 Traceback:\n{error_msg}")
         finally:
             self.is_training = False
 
