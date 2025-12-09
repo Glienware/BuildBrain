@@ -26,7 +26,7 @@ class NewProjectWizard:
         self.project_data = {
             "project_name": "",
             "task_type": "classification",
-            "model_type": "LogisticRegression",
+            "model_type": "logistic_regression",
             "training_settings": {
                 "epochs": 100,
                 "batch_size": 32,
@@ -43,20 +43,79 @@ class NewProjectWizard:
 
         # UI state
         self.current_step = 0
-        self.steps = [
-            "Nombre del Proyecto",
-            "Configuración de Tareas",
-            "Gestión de Clases",
-            "Clases Balanceadas",
-            "Cargar Dataset",
-            "Entrenamiento y Logs"
-        ]
+        self._update_steps_based_on_model()
 
         # UI components
         self.step_indicator = None
         self.content_area = None
         self.next_button = None
         self.back_button = None
+
+    def _update_steps_based_on_model(self):
+        """Update steps dynamically based on selected model type."""
+        model_type = self.project_data.get("model_type", "logistic_regression")
+        
+        # Determine model category
+        supervised_models = [
+            "linear_regression", "random_forest_regressor", "xgboost_regressor", "svr",
+            "logistic_regression", "random_forest_classifier", "xgboost_classifier",
+            "knn", "svm", "naive_bayes"
+        ]
+        
+        unsupervised_models = [
+            "kmeans", "dbscan", "mean_shift", "gaussian_mixture",
+            "pca", "tsne", "umap"
+        ]
+        
+        anomaly_models = ["isolation_forest", "one_class_svm"]
+        
+        deep_learning_models = [
+            "resnet18", "resnet34", "resnet50",
+            "pytorch_cnn", "pytorch_mlp"
+        ]
+        
+        # Set steps based on model category
+        if model_type in supervised_models:
+            self.steps = [
+                "Nombre del Proyecto",
+                "Configuración de Tareas",
+                "Gestión de Clases",
+                "Clases Balanceadas",
+                "Cargar Dataset",
+                "Entrenamiento y Logs"
+            ]
+        elif model_type in unsupervised_models:
+            self.steps = [
+                "Nombre del Proyecto",
+                "Tipo de Modelo",
+                "Parámetros del Modelo",
+                "Cargar Dataset",
+                "Entrenamiento y Logs"
+            ]
+        elif model_type in anomaly_models:
+            self.steps = [
+                "Nombre del Proyecto",
+                "Configuración de Anomalías",
+                "Parámetros del Modelo",
+                "Cargar Dataset",
+                "Entrenamiento y Logs"
+            ]
+        elif model_type in deep_learning_models:
+            self.steps = [
+                "Nombre del Proyecto",
+                "Tipo de Red Neuronal",
+                "Configuración de la Red",
+                "Parámetros de Entrenamiento",
+                "Cargar Dataset",
+                "Entrenamiento y Logs"
+            ]
+        else:
+            self.steps = [
+                "Nombre del Proyecto",
+                "Configuración de Tareas",
+                "Cargar Dataset",
+                "Entrenamiento y Logs"
+            ]
 
     def build(self):
         """Build the wizard interface."""
@@ -269,19 +328,48 @@ class NewProjectWizard:
         return descriptions[step_index]
 
     def _build_content_area(self):
-        """Build the main content area for current step."""
-        if self.current_step == 0:
+        """Build the main content area for current step based on step name."""
+        if self.current_step >= len(self.steps):
+            return ft.Text("Step not implemented")
+        
+        current_step_name = self.steps[self.current_step]
+        
+        # Always start with project name
+        if current_step_name == "Nombre del Proyecto":
             return self._build_project_name_step()
-        elif self.current_step == 1:
+        
+        # Supervised Learning flow
+        elif current_step_name == "Configuración de Tareas":
             return self._build_task_config_step()
-        elif self.current_step == 2:
+        elif current_step_name == "Gestión de Clases":
             return self._build_class_management_step()
-        elif self.current_step == 3:
+        elif current_step_name == "Clases Balanceadas":
             return self._build_balanced_class_step()
-        elif self.current_step == 4:
+        
+        # Unsupervised Learning flow
+        elif current_step_name == "Tipo de Modelo":
+            return self._build_model_selection_step()
+        elif current_step_name == "Parámetros del Modelo":
+            return self._build_unsupervised_params_step()
+        
+        # Anomaly Detection flow
+        elif current_step_name == "Configuración de Anomalías":
+            return self._build_anomaly_config_step()
+        
+        # Deep Learning flow
+        elif current_step_name == "Tipo de Red Neuronal":
+            return self._build_neural_network_type_step()
+        elif current_step_name == "Configuración de la Red":
+            return self._build_neural_network_config_step()
+        elif current_step_name == "Parámetros de Entrenamiento":
+            return self._build_training_params_step()
+        
+        # Common steps
+        elif current_step_name == "Cargar Dataset":
             return self._build_dataset_upload_step()
-        elif self.current_step == 5:
+        elif current_step_name == "Entrenamiento y Logs":
             return self._build_training_logs_step()
+        
         return ft.Text("Step not implemented")
 
     def _refresh_current_step(self):
@@ -358,13 +446,45 @@ class NewProjectWizard:
 
     def _build_task_config_step(self):
         """Build task configuration step."""
-        # Model type selection
+        # Model type selection - Comprehensive ML Models
         model_options = [
-            ft.dropdown.Option("LogisticRegression", "Logistic Regression"),
-            ft.dropdown.Option("RandomForest", "Random Forest"),
-            ft.dropdown.Option("XGBoost", "XGBoost"),
-            ft.dropdown.Option("PyTorch_CNN", "PyTorch CNN"),
-            ft.dropdown.Option("PyTorch_MLP", "PyTorch MLP"),
+            # Supervised Learning - Regression
+            ft.dropdown.Option("linear_regression", "📊 Regresión Lineal"),
+            ft.dropdown.Option("random_forest_regressor", "🌲 Random Forest Regressor"),
+            ft.dropdown.Option("xgboost_regressor", "🚀 XGBoost Regressor"),
+            ft.dropdown.Option("svr", "📈 SVR (Support Vector Regression)"),
+            
+            # Supervised Learning - Classification
+            ft.dropdown.Option("logistic_regression", "📊 Regresión Logística"),
+            ft.dropdown.Option("random_forest_classifier", "🌲 Random Forest Classifier"),
+            ft.dropdown.Option("xgboost_classifier", "🚀 XGBoost Classifier"),
+            ft.dropdown.Option("knn", "🔍 KNN (K-Nearest Neighbors)"),
+            ft.dropdown.Option("svm", "🎯 SVM (Support Vector Machine)"),
+            ft.dropdown.Option("naive_bayes", "📚 Naive Bayes"),
+            
+            # Unsupervised Learning - Clustering
+            ft.dropdown.Option("kmeans", "🔗 K-Means"),
+            ft.dropdown.Option("dbscan", "🔗 DBSCAN"),
+            ft.dropdown.Option("mean_shift", "🔗 Mean Shift"),
+            ft.dropdown.Option("gaussian_mixture", "🔗 Gaussian Mixture Models"),
+            
+            # Unsupervised Learning - Dimensionality Reduction
+            ft.dropdown.Option("pca", "📉 PCA (Principal Component Analysis)"),
+            ft.dropdown.Option("tsne", "📉 t-SNE"),
+            ft.dropdown.Option("umap", "📉 UMAP"),
+            
+            # Anomaly Detection
+            ft.dropdown.Option("isolation_forest", "⚠️ Isolation Forest"),
+            ft.dropdown.Option("one_class_svm", "⚠️ One-Class SVM"),
+            
+            # Deep Learning - ResNets
+            ft.dropdown.Option("resnet18", "🧠 ResNet-18"),
+            ft.dropdown.Option("resnet34", "🧠 ResNet-34"),
+            ft.dropdown.Option("resnet50", "🧠 ResNet-50"),
+            
+            # Deep Learning - Custom
+            ft.dropdown.Option("pytorch_cnn", "🧠 PyTorch CNN"),
+            ft.dropdown.Option("pytorch_mlp", "🧠 PyTorch MLP"),
         ]
 
         model_dropdown = ft.Dropdown(
@@ -372,7 +492,7 @@ class NewProjectWizard:
             options=model_options,
             value=self.project_data["model_type"],
             on_change=lambda e: self._update_model_type(e.data),
-            width=300,
+            width=400,
         )
 
         # Task type selection
@@ -434,7 +554,7 @@ class NewProjectWizard:
 
             ft.Container(height=32),
 
-            # Tipo de Modelo
+        # Tipo de Modelo
             ft.Container(
                 content=ft.Column([
                     ft.Row([
@@ -444,6 +564,8 @@ class NewProjectWizard:
                     ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     ft.Container(height=16),
                     model_dropdown,
+                    ft.Container(height=12),
+                    self._build_model_description_container(),
                 ], spacing=0),
                 bgcolor="#1A1A1A",
                 border=ft.border.all(1.5, "#2D2D2D"),
@@ -1098,12 +1220,193 @@ class NewProjectWizard:
 
     def _update_model_type(self, model_type):
         self.project_data["model_type"] = model_type
+        # Update the steps based on new model type
+        self._update_steps_based_on_model()
+        # Rebuild the entire wizard to reflect the new steps
+        self.page.clean()
+        self.page.add(self.build())
+        self.page.update()
 
     def _update_task_type(self, task_type):
         self.project_data["task_type"] = task_type
 
     def _update_setting(self, key, value):
         self.project_data["training_settings"][key] = value
+
+    def _build_model_description_container(self):
+        """Build a container with model description based on selected model."""
+        model_descriptions = {
+            # Supervised Learning - Regression
+            "linear_regression": ("Regresión Lineal", "Modelo simple para relaciones lineales entre variables. Rápido y fácil de interpretar.", "#82B1FF"),
+            "random_forest_regressor": ("Random Forest Regressor", "Ensemble de árboles para predicciones robustas. Maneja no-linealidades bien.", "#FFB74D"),
+            "xgboost_regressor": ("XGBoost Regressor", "Boosting gradual para máximo rendimiento. Excelente en competiciones.", "#FF6B6B"),
+            "svr": ("SVR (Support Vector Regression)", "Versión de regresión de máquinas de soporte vectorial.", "#3DDC84"),
+            
+            # Supervised Learning - Classification
+            "logistic_regression": ("Regresión Logística", "Modelo probabilístico para clasificación binaria o multiclase.", "#82B1FF"),
+            "random_forest_classifier": ("Random Forest Classifier", "Ensemble robusto para clasificación con múltiples características.", "#FFB74D"),
+            "xgboost_classifier": ("XGBoost Classifier", "Algoritmo de boosting de última generación para clasificación.", "#FF6B6B"),
+            "knn": ("KNN (K-Nearest Neighbors)", "Clasificación basada en vecinos más cercanos. Simple pero efectivo.", "#3DDC84"),
+            "svm": ("SVM (Support Vector Machine)", "Clasificador potente que funciona bien en espacios altos dimensionales.", "#00BCD4"),
+            "naive_bayes": ("Naive Bayes", "Clasificador probabilístico rápido basado en el teorema de Bayes.", "#4CAF50"),
+            
+            # Unsupervised Learning - Clustering
+            "kmeans": ("K-Means", "Clustering particional para agrupar datos en K clusters. Rápido y escalable.", "#FF9800"),
+            "dbscan": ("DBSCAN", "Clustering basado en densidad. Detecta clusters de formas arbitrarias.", "#F44336"),
+            "mean_shift": ("Mean Shift", "Clustering sin necesidad de especificar número de clusters. Adaptativo.", "#2196F3"),
+            "gaussian_mixture": ("Gaussian Mixture Models", "Clustering probabilístico que modela clusters como gaussianas.", "#673AB7"),
+            
+            # Unsupervised Learning - Dimensionality Reduction
+            "pca": ("PCA", "Reduce dimensiones mientras preserva varianza. Útil para visualización.", "#009688"),
+            "tsne": ("t-SNE", "Excelente para visualizar datos en 2D/3D. Mantiene estructura local.", "#00897B"),
+            "umap": ("UMAP", "Alternativa moderna a t-SNE. Más rápido y preserva mejor la estructura global.", "#26A69A"),
+            
+            # Anomaly Detection
+            "isolation_forest": ("Isolation Forest", "Detecta anomalías aislando puntos outliers. Rápido y eficiente.", "#E91E63"),
+            "one_class_svm": ("One-Class SVM", "Detección de anomalías usando máquinas de soporte vectorial.", "#C2185B"),
+            
+            # Deep Learning - ResNets
+            "resnet18": ("ResNet-18", "Red neuronal residual con 18 capas. Equilibrio entre velocidad y precisión. Ideal para imágenes.", "#FF6F00"),
+            "resnet34": ("ResNet-34", "ResNet con 34 capas. Mejor precisión que ResNet-18 con más parámetros.", "#FFB300"),
+            "resnet50": ("ResNet-50", "ResNet con 50 capas. Excelente para tareas complejas de clasificación de imágenes.", "#FFA500"),
+            
+            # Deep Learning - Custom
+            "pytorch_cnn": ("PyTorch CNN", "Red neuronal convolucional personalizada para análisis de imágenes.", "#FF6F00"),
+            "pytorch_mlp": ("PyTorch MLP", "Red neuronal multicapa para problemas de regresión y clasificación.", "#FFB300"),
+        }
+        
+        model_type = self.project_data["model_type"]
+        title, description, color = model_descriptions.get(
+            model_type,
+            ("Modelo Desconocido", "Selecciona un modelo válido.", "#666666")
+        )
+        
+        return ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(ft.Icons.INFO, size=16, color=color),
+                    ft.Container(width=8),
+                    ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=color),
+                ], spacing=0),
+                ft.Container(height=6),
+                ft.Text(description, size=11, color="#AAAAAA", max_lines=3),
+            ], spacing=0),
+            padding=ft.padding.all(12),
+            bgcolor="#151515",
+            border=ft.border.all(1, color),
+            border_radius=8,
+        )
+
+    def _build_model_selection_step(self):
+        """Build model selection step for unsupervised learning."""
+        return ft.Column([
+            ft.Column([
+                ft.Text("Selecciona tu Modelo", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text("Elige el tipo de modelo no supervisado que mejor se adapte a tus datos", size=15, color="#AAAAAA"),
+            ], spacing=0),
+            ft.Container(height=40),
+            ft.Text("Modelo seleccionado: " + self.project_data["model_type"], size=14, color="#3DDC84"),
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
+
+    def _build_unsupervised_params_step(self):
+        """Build parameters step for unsupervised models."""
+        model_type = self.project_data["model_type"]
+        
+        params_content = []
+        params_content.extend([
+            ft.Text("Parámetros del Modelo", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+            ft.Container(height=8),
+            ft.Text("Configura los parámetros específicos del algoritmo", size=15, color="#AAAAAA"),
+            ft.Container(height=40),
+        ])
+        
+        # Add model-specific parameters
+        if model_type == "kmeans":
+            params_content.extend([
+                ft.Text("Número de Clusters (n_clusters):", size=13, color=ft.Colors.WHITE),
+                ft.Slider(min=2, max=10, value=3, label="{value}", on_change=lambda e: self._update_setting("n_clusters", int(e.value))),
+            ])
+        elif model_type in ["dbscan", "mean_shift"]:
+            params_content.extend([
+                ft.Text("Parámetros automáticos - Se ajustan en el entrenamiento", size=13, color="#AAAAAA"),
+            ])
+        elif model_type in ["pca", "tsne", "umap"]:
+            params_content.extend([
+                ft.Text("Componentes (dimensiones):", size=13, color=ft.Colors.WHITE),
+                ft.Slider(min=2, max=3, value=2, label="{value}", on_change=lambda e: self._update_setting("n_components", int(e.value))),
+            ])
+        
+        params_content.append(ft.Container(expand=True))
+        return ft.Column(params_content, spacing=0, expand=True)
+
+    def _build_anomaly_config_step(self):
+        """Build configuration step for anomaly detection."""
+        return ft.Column([
+            ft.Column([
+                ft.Text("Configuración de Detección de Anomalías", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text("Ajusta los parámetros para detectar anomalías en tus datos", size=15, color="#AAAAAA"),
+            ], spacing=0),
+            ft.Container(height=40),
+            ft.Text("Tasa de Contaminación (% de anomalías esperadas):", size=13, color=ft.Colors.WHITE),
+            ft.Container(height=8),
+            ft.Slider(min=0.01, max=0.5, value=0.1, label="{value:.2%}", on_change=lambda e: self._update_setting("contamination", e.value)),
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
+
+    def _build_neural_network_type_step(self):
+        """Build neural network type selection step."""
+        return ft.Column([
+            ft.Column([
+                ft.Text("Tipo de Red Neuronal", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text("Selecciona la arquitectura de red neuronal", size=15, color="#AAAAAA"),
+            ], spacing=0),
+            ft.Container(height=40),
+            ft.Text("Modelo seleccionado: " + self.project_data["model_type"], size=14, color="#3DDC84"),
+            ft.Container(height=20),
+            ft.Text("Esta arquitectura será optimizada para visión por computadora e imágenes.", size=12, color="#AAAAAA"),
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
+
+    def _build_neural_network_config_step(self):
+        """Build neural network configuration step."""
+        return ft.Column([
+            ft.Column([
+                ft.Text("Configuración de la Red", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text("Configura los parámetros de la arquitectura", size=15, color="#AAAAAA"),
+            ], spacing=0),
+            ft.Container(height=40),
+            ft.Text("Tamaño de entrada (224x224 por defecto):", size=13, color=ft.Colors.WHITE),
+            ft.TextField(label="Resolución", value="224", width=150),
+            ft.Container(height=20),
+            ft.Text("Número de clases a clasificar:", size=13, color=ft.Colors.WHITE),
+            ft.TextField(label="Clases", value=str(len(self.project_data["classes"]) or 10), width=150),
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
+
+    def _build_training_params_step(self):
+        """Build training parameters step for deep learning."""
+        return ft.Column([
+            ft.Column([
+                ft.Text("Parámetros de Entrenamiento", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text("Configura los hiperparámetros para el entrenamiento", size=15, color="#AAAAAA"),
+            ], spacing=0),
+            ft.Container(height=40),
+            ft.Text("Épocas:", size=13, color=ft.Colors.WHITE),
+            ft.TextField(label="Épocas", value=str(self.project_data["training_settings"]["epochs"]), width=150),
+            ft.Container(height=12),
+            ft.Text("Batch Size:", size=13, color=ft.Colors.WHITE),
+            ft.TextField(label="Batch Size", value=str(self.project_data["training_settings"]["batch_size"]), width=150),
+            ft.Container(height=12),
+            ft.Text("Learning Rate:", size=13, color=ft.Colors.WHITE),
+            ft.TextField(label="Learning Rate", value=str(self.project_data["training_settings"]["learning_rate"]), width=150),
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
 
     def _add_class(self, class_name):
         if class_name and class_name not in self.project_data["classes"]:
