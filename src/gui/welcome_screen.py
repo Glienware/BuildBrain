@@ -58,21 +58,37 @@ class WelcomeScreen:
 
     def build(self):
         """Build the welcome screen layout with premium design."""
+        # Try to load logo
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "logo.png")
+        logo_widget = None
+        
+        if os.path.exists(logo_path):
+            try:
+                logo_widget = ft.Image(
+                    src=logo_path,
+                    width=60,
+                    height=60,
+                    fit=ft.ImageFit.CONTAIN,
+                )
+            except Exception as e:
+                print(f"Error loading logo: {e}")
+                logo_widget = ft.Icon(ft.Icons.PSYCHOLOGY, size=60, color="#3DDC84")
+        else:
+            logo_widget = ft.Icon(ft.Icons.PSYCHOLOGY, size=60, color="#3DDC84")
+        
         return ft.Container(
             content=ft.Column([
-                # Premium Header
+                # Premium Header with Logo
                 ft.Container(
                     content=ft.Row([
+                        logo_widget,
+                        ft.Container(width=20),
                         ft.Column([
-                            ft.Row([
-                                ft.Icon(ft.Icons.PSYCHOLOGY, size=32, color="#3DDC84"),
-                                ft.Container(width=12),
-                                ft.Text("BuildBrain", size=28, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
-                            ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                            ft.Text("BuildBrain", size=28, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
                             ft.Container(height=4),
                             ft.Text("Crea y entrena modelos de aprendizaje automático profesionalmente", size=13, color="#AAAAAA"),
                         ], spacing=0, expand=True),
-                    ], alignment=ft.MainAxisAlignment.START),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     bgcolor="#0D0D0D",
                     padding=ft.padding.symmetric(horizontal=32, vertical=20),
                     border=ft.border.only(bottom=ft.border.BorderSide(1.5, "#2D2D2D")),

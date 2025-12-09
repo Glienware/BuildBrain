@@ -100,6 +100,15 @@ def main(page: ft.Page):
     page.window_resizable = True
     page.window_maximizable = True
     page.window_minimizable = True
+    
+    # Set window icon
+    logo_path = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
+    if os.path.exists(logo_path):
+        try:
+            page.window_icon = logo_path
+            print(f"Window icon set from: {logo_path}")
+        except Exception as e:
+            print(f"Could not set window icon: {e}")
 
     # Create app controller and show welcome screen
     app_controller = AppController(page)
