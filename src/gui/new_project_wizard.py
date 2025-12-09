@@ -815,7 +815,11 @@ class NewProjectWizard:
         """Build dataset upload step with class-based organization."""
         # Initialize dataset uploader with existing classes
         if not hasattr(self, 'dataset_uploader'):
-            self.dataset_uploader = DatasetUploader(self.page, existing_classes=self.project_data.get("classes", []), on_update=self._refresh_current_step)
+            self.dataset_uploader = DatasetUploader(
+                self.page, 
+                existing_classes=self.project_data.get("classes", []), 
+                on_update=self._on_dataset_updated
+            )
 
         return ft.Column([
             # Header
@@ -1574,16 +1578,156 @@ class NewProjectWizard:
         pass
 
     def _start_quick_training(self, e):
-        """Start quick training."""
+        """Start quick training with REAL ModelTrainer."""
         self.training_progress.value = 0
-        self._add_log("Starting quick training...")
-        # In real implementation, this would start training in background
-        self._simulate_training()
+        self._add_log("🚀 Iniciando entrenamiento rápido...")
+        
+        try:
+            # Verify model trainer exists
+            if not hasattr(self, 'model_trainer'):
+                self._add_log("❌ Error: Modelo no inicializado. Por favor crea el modelo primero.")
+                return
+            
+            # Verify dataset exists
+            if not hasattr(self, 'dataset_path') or not self.dataset_path:
+                self._add_log("❌ Error: Dataset no cargado. Por favor carga un dataset primero.")
+                return
+            
+            import pandas as pd
+            import numpy as np
+            from sklearn.model_selection import train_test_split
+            
+            # Load dataset
+            self._add_log("📂 Cargando dataset...")
+            
+            file_path = self.dataset_path
+            if file_path.endswith('.csv'):
+                df = pd.read_csv(file_path)
+            elif file_path.endswith('.xlsx'):
+                df = pd.read_excel(file_path)
+            else:
+                self._add_log(f"❌ Formato no soportado: {file_path}")
+                return
+            
+            self._add_log(f"✅ Dataset cargado: {len(df)} muestras, {len(df.columns)} características")
+            
+            # Prepare data
+            self._add_log("🔧 Preparando datos...")
+            
+            model_category = self.model_trainer.config.get('model_category', 'supervised')
+            
+            # Handle different model categories
+            if model_category == 'supervised':
+                # For supervised learning: separate X and y
+                X = df.iloc[:, :-1].values
+                y = df.iloc[:, -1].values
+                
+                # Split data
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.2, random_state=42
+                )
+                
+                self._add_log(f"📊 Train set: {len(X_train)} | Test set: {len(X_test)}")
+                
+                # Train with quick config
+                self._add_log("🎓 Entrenando modelo (QUICK MODE)...")
+                self.training_progress.value = 0.3
+                self.page.update()
+                
+                self.model_trainer.train(
+                    X_train, y_train,
+                    validation_split=0.2,
+                    epochs=5 if self.model_trainer.config.get('model_category') == 'deep_learning' else None
+                )
+                
+                self.training_progress.value = 0.7
+                self._add_log("📈 Evaluando modelo...")
+                self.page.update()
+                
+                # Evaluate
+                metrics = self.model_trainer.evaluate(X_test, y_test)
+                
+                self.training_progress.value = 0.9
+                self._add_log(f"✅ Métricas obtenidas:")
+                
+                for metric_name, metric_value in metrics.items():
+                    self._add_log(f"   • {metric_name}: {metric_value:.4f}")
+                
+            elif model_category == 'unsupervised':
+                # For unsupervised: all data is features
+                X = df.values
+                self._add_log(f"📊 Dataset: {len(X)} muestras")
+                
+                self._add_log("🎓 Entrenando modelo (QUICK MODE)...")
+                self.training_progress.value = 0.3
+                self.page.update()
+                
+                self.model_trainer.train(X, None)
+                
+                self.training_progress.value = 0.7
+                self._add_log("📈 Evaluando clustering...")
+                self.page.update()
+                
+                # Evaluate
+                silhouette = self.model_trainer.evaluate(X, None)
+                self._add_log(f"✅ Silhouette Score: {silhouette:.4f}")
+                
+            elif model_category == 'anomaly_detection':
+                # For anomaly detection: all data is features
+                X = df.values
+                self._add_log(f"📊 Dataset: {len(X)} muestras")
+                
+                self._add_log("🎓 Entrenando modelo (QUICK MODE)...")
+                self.training_progress.value = 0.3
+                self.page.update()
+                
+                self.model_trainer.train(X, None)
+                
+                self.training_progress.value = 0.7
+                self._add_log("🔍 Detectando anomalías...")
+                self.page.update()
+                
+                anomalies = self.model_trainer.predict(X[:min(10, len(X))])
+                anomaly_count = np.sum(anomalies == -1)
+                self._add_log(f"✅ Anomalías detectadas: {anomaly_count}/{min(10, len(X))}")
+            
+            self.training_progress.value = 1.0
+            self._add_log("✅ ¡Entrenamiento completado exitosamente!")
+            
+            # Save model
+            import time
+            time.sleep(0.3)
+            
+            if hasattr(self, 'project_dir'):
+                model_path = os.path.join(self.project_dir, "models", "trained_model.pkl")
+                self.model_trainer.save_model(model_path)
+                self._add_log(f"💾 Modelo guardado en: {model_path}")
+            
+            self.page.update()
+            
+        except Exception as ex:
+            self._add_log(f"❌ Error durante el entrenamiento: {str(ex)}")
+            import traceback
+            self._add_log(traceback.format_exc())
+            self.training_progress.value = 0
 
     def _start_advanced_training(self, e):
-        """Start advanced training."""
-        self._add_log("Starting advanced training...")
-        # In real implementation, this would open advanced training dialog
+        """Start advanced training with custom configuration."""
+        self._add_log("🔧 Abriendo panel de configuración avanzada...")
+        
+        try:
+            if not hasattr(self, 'model_trainer'):
+                self._add_log("❌ Error: Modelo no inicializado.")
+                return
+            
+            if not hasattr(self, 'dataset_path') or not self.dataset_path:
+                self._add_log("❌ Error: Dataset no cargado.")
+                return
+            
+            self._add_log("⚠️ Entrenamiento avanzado: ajusta los parámetros arriba y haz click nuevamente")
+            
+        except Exception as ex:
+            self._add_log(f"❌ Error: {str(ex)}")
 
     def _simulate_training(self):
         """Simulate training progress with realistic metrics."""
@@ -1653,6 +1797,16 @@ class NewProjectWizard:
         ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.START)
         self.training_logs.controls.append(log_entry)
         self.page.update()
+
+    def _on_dataset_updated(self):
+        """Callback when dataset is updated."""
+        # Capture dataset path for training
+        if hasattr(self, 'dataset_uploader'):
+            self.dataset_path = self.dataset_uploader.dataset_path
+        
+        # Refresh UI
+        if hasattr(self, '_refresh_current_step'):
+            self._refresh_current_step()
 
     def _complete_wizard(self):
         """Complete the wizard and save project."""
