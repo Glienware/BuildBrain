@@ -726,7 +726,7 @@ class NewProjectWizard:
 
         dataset_info = self.dataset_uploader.get_dataset_info()
 
-        # Build class distribution items
+        # Build class distribution items in a grid (2 columns)
         class_items = []
         for class_name, images in dataset_info['classes'].items():
             num_images = len(images)
@@ -734,27 +734,48 @@ class NewProjectWizard:
             
             class_items.append(
                 ft.Container(
-                    content=ft.Row([
-                        ft.Container(
-                            content=ft.Text(class_name, size=13, weight=ft.FontWeight.W_500, color=ft.Colors.WHITE),
-                            expand=True,
-                        ),
-                        ft.Container(
-                            content=ft.Row([
-                                ft.Text(f"{num_images}", size=12, color="#3DDC84", weight=ft.FontWeight.BOLD),
-                                ft.Text("imágenes", size=11, color="#888888"),
-                            ], spacing=4),
-                            padding=ft.padding.symmetric(horizontal=10, vertical=6),
-                            bgcolor=ft.Colors.with_opacity(0.1, "#3DDC84"),
-                            border_radius=4,
-                        ),
-                    ], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                    content=ft.Column([
+                        ft.Text(class_name, size=13, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                        ft.Container(height=10),
+                        ft.Row([
+                            ft.Column([
+                                ft.Text("Imágenes", size=10, color="#888888"),
+                                ft.Container(height=4),
+                                ft.Text(str(num_images), size=18, weight=ft.FontWeight.BOLD, color="#3DDC84"),
+                            ], spacing=0),
+                            ft.Container(expand=True),
+                            ft.Column([
+                                ft.Text("Porcentaje", size=10, color="#888888"),
+                                ft.Container(height=4),
+                                ft.Text(f"{percentage:.1f}%", size=16, weight=ft.FontWeight.W_600, color="#82B1FF"),
+                            ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.END),
+                        ], spacing=0),
+                    ], spacing=0),
+                    padding=ft.padding.all(14),
                     bgcolor="#0D0D0D",
-                    border_radius=6,
+                    border_radius=8,
                     border=ft.border.all(1, "#2D2D2D"),
+                    expand=True,
                 )
             )
+
+        # Arrange class items in a 2-column grid
+        class_grid = []
+        for i in range(0, len(class_items), 2):
+            row_items = []
+            if i < len(class_items):
+                row_items.append(class_items[i])
+            if i + 1 < len(class_items):
+                row_items.append(class_items[i + 1])
+            
+            if row_items:
+                class_grid.append(
+                    ft.Row(
+                        controls=row_items,
+                        spacing=12,
+                        expand=True,
+                    )
+                )
 
         return ft.Container(
             content=ft.Column([
@@ -765,8 +786,8 @@ class NewProjectWizard:
                 ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 ft.Container(height=16),
                 
+                # Stats cards in a row
                 ft.Row([
-                    # Stats cards
                     ft.Container(
                         content=ft.Column([
                             ft.Text("Clases", size=12, color="#888888"),
@@ -796,12 +817,14 @@ class NewProjectWizard:
                 
                 ft.Container(height=16),
                 
-                # Class distribution
+                # Class distribution header
                 ft.Text("Distribución por Clase", size=12, color="#888888", weight=ft.FontWeight.BOLD),
                 ft.Container(height=10),
+                
+                # Class grid (2 columns)
                 ft.Column(
-                    controls=class_items,
-                    spacing=6,
+                    controls=class_grid,
+                    spacing=12,
                     scroll=ft.ScrollMode.AUTO,
                 ),
             ], spacing=0),
@@ -1058,6 +1081,8 @@ class NewProjectWizard:
         if class_name and class_name not in self.project_data["classes"]:
             self.project_data["classes"].append(class_name)
             self._update_classes_display()
+            # Actualizar la página inmediatamente
+            self.page.update()
 
     def _update_classes_display(self):
         """Update the classes list display."""
@@ -1066,14 +1091,29 @@ class NewProjectWizard:
             self.classes_list.controls.append(
                 ft.Container(
                     content=ft.Row([
-                        ft.Text(f"{i+1}. {class_name}", size=14),
+                        ft.Row([
+                            ft.Container(
+                                content=ft.Text(str(i+1), size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                width=28,
+                                height=28,
+                                bgcolor="#3DDC84",
+                                border_radius=14,
+                                alignment=ft.alignment.center,
+                            ),
+                            ft.Container(width=12),
+                            ft.Text(class_name, size=14, weight=ft.FontWeight.W_500, color=ft.Colors.WHITE),
+                        ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER, expand=True),
                         ft.IconButton(
-                            ft.Icons.DELETE,
+                            ft.Icons.DELETE_OUTLINE,
                             on_click=lambda e, idx=i: self._remove_class(idx),
-                            icon_size=16,
+                            icon_size=18,
+                            icon_color="#FF6B6B",
                         ),
-                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                    padding=ft.padding.all(5),
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                    bgcolor="#0D0D0D",
+                    border_radius=8,
+                    border=ft.border.all(1, "#2D2D2D"),
                 )
             )
 
@@ -1081,6 +1121,8 @@ class NewProjectWizard:
         if 0 <= index < len(self.project_data["classes"]):
             self.project_data["classes"].pop(index)
             self._update_classes_display()
+            # Actualizar la página inmediatamente
+            self.page.update()
 
     def _update_balance_display(self):
         """Update class balance visualization."""
