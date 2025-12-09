@@ -707,7 +707,7 @@ class NewProjectWizard:
 
             ft.Container(height=24),
 
-            # Dataset uploader and summary - single scrollable container
+            # Dataset uploader and summary - single scrollable container with custom scrollbar style
             ft.Container(
                 content=ft.Column([
                     # Dataset uploader
@@ -719,6 +719,9 @@ class NewProjectWizard:
                     self._build_dataset_summary(),
                 ], spacing=0, scroll=ft.ScrollMode.AUTO),
                 expand=True,
+                bgcolor="#0D0D0D",
+                border_radius=8,
+                border=ft.border.all(1, "#1F1F1F"),
             ),
 
         ], spacing=0, expand=True)
@@ -862,43 +865,31 @@ class NewProjectWizard:
         )
 
     def _build_training_logs_step(self):
-        """Build training and logs step."""
-        # Training controls
-        quick_train_button = ft.ElevatedButton(
-            "Entrenamiento Rápido",
-            icon=ft.Icons.FLASH_ON,
-            on_click=self._start_quick_training,
+        """Build model creation and logs step."""
+        # Create model button
+        create_model_button = ft.ElevatedButton(
+            "Crear Modelo",
+            icon=ft.Icons.BUILD_CIRCLE,
+            on_click=self._start_model_creation,
             style=ft.ButtonStyle(
                 bgcolor="#3DDC84",
                 color=ft.Colors.BLACK,
-                padding=ft.padding.symmetric(horizontal=28, vertical=14),
-                shape=ft.RoundedRectangleBorder(radius=8),
-            ),
-        )
-
-        advanced_train_button = ft.ElevatedButton(
-            "Entrenamiento Avanzado",
-            icon=ft.Icons.TUNE,
-            on_click=self._start_advanced_training,
-            style=ft.ButtonStyle(
-                bgcolor="#82B1FF",
-                color=ft.Colors.BLACK,
-                padding=ft.padding.symmetric(horizontal=28, vertical=14),
+                padding=ft.padding.symmetric(horizontal=32, vertical=16),
                 shape=ft.RoundedRectangleBorder(radius=8),
             ),
         )
 
         # Progress and logs
-        self.training_progress = ft.ProgressBar(value=0)
-        self.training_logs = ft.Column(scroll=ft.ScrollMode.AUTO)
+        self.training_progress = ft.ProgressBar(value=0, color="#3DDC84")
+        self.training_logs = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=8)
 
         return ft.Column([
             # Header
             ft.Column([
-                ft.Text("Entrenamiento y Logs", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Text("Creación del Modelo", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
                 ft.Container(height=8),
                 ft.Text(
-                    "Inicia el entrenamiento de tu modelo y monitorea el progreso",
+                    "Crea tu modelo configurando carpetas, archivos y parámetros necesarios",
                     size=15,
                     color="#AAAAAA",
                 ),
@@ -906,21 +897,29 @@ class NewProjectWizard:
 
             ft.Container(height=32),
 
-            # Training options
+            # Create model action
             ft.Container(
                 content=ft.Column([
                     ft.Row([
-                        ft.Icon(ft.Icons.PLAY_CIRCLE, size=22, color="#3DDC84"),
+                        ft.Icon(ft.Icons.BUILD, size=24, color="#3DDC84"),
                         ft.Container(width=16),
-                        ft.Text("Opciones de Entrenamiento", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                        ft.Text("Crear Modelo", size=15, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
                     ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     ft.Container(height=20),
-                    ft.Row([
-                        quick_train_button,
-                        ft.Container(width=16),
-                        advanced_train_button,
-                        ft.Container(expand=True),
-                    ], spacing=0),
+                    ft.Text(
+                        "El proceso creará automáticamente:",
+                        size=12,
+                        color="#AAAAAA",
+                    ),
+                    ft.Container(height=12),
+                    ft.Column([
+                        self._create_info_row("📁", "Carpetas del proyecto", "#888888"),
+                        self._create_info_row("⚙️", "Configuración de modelo", "#888888"),
+                        self._create_info_row("📄", "Archivos necesarios", "#888888"),
+                        self._create_info_row("🔧", "Parámetros de entrenamiento", "#888888"),
+                    ], spacing=8),
+                    ft.Container(height=24),
+                    create_model_button,
                 ], spacing=0),
                 bgcolor="#1A1A1A",
                 border=ft.border.all(1.5, "#2D2D2D"),
@@ -934,26 +933,20 @@ class NewProjectWizard:
             ft.Container(
                 content=ft.Column([
                     ft.Row([
-                        ft.Icon(ft.Icons.TRENDING_UP, size=22, color="#FFB74D"),
+                        ft.Icon(ft.Icons.INFO_OUTLINE, size=22, color="#82B1FF"),
                         ft.Container(width=16),
-                        ft.Text("Progreso del Entrenamiento", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                        ft.Text("Logs del Proceso", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
                     ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     ft.Container(height=16),
                     ft.Container(
                         content=self.training_progress,
-                        padding=ft.padding.symmetric(horizontal=0, vertical=6),
+                        padding=ft.padding.symmetric(horizontal=0, vertical=8),
                     ),
-                    ft.Container(height=20),
-                    ft.Row([
-                        ft.Icon(ft.Icons.DESCRIPTION, size=22, color="#82B1FF"),
-                        ft.Container(width=16),
-                        ft.Text("Logs de Entrenamiento", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
-                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    ft.Container(height=12),
+                    ft.Container(height=16),
                     ft.Container(
                         content=self.training_logs,
                         bgcolor="#0D0D0D",
-                        border=ft.border.all(1, "#2D2D2D"),
+                        border=ft.border.all(1.5, "#2D2D2D"),
                         border_radius=8,
                         padding=ft.padding.all(12),
                         expand=True,
@@ -968,6 +961,14 @@ class NewProjectWizard:
 
             ft.Container(expand=True),
         ], spacing=0, expand=True)
+
+    def _create_info_row(self, icon, text, color):
+        """Create an info row with icon and text."""
+        return ft.Row([
+            ft.Text(icon, size=14),
+            ft.Container(width=8),
+            ft.Text(text, size=12, color=color),
+        ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
     def _build_navigation_buttons(self):
         """Build navigation buttons."""
@@ -1192,6 +1193,34 @@ class NewProjectWizard:
         # In real implementation, this would open file picker
         self._add_log("Dataset selection functionality would be implemented here")
 
+    def _start_model_creation(self, e):
+        """Start model creation process."""
+        self.training_progress.value = 0
+        self._add_log("🔄 Iniciando proceso de creación de modelo...")
+        # In real implementation, this would create the model in background
+        self._simulate_model_creation()
+
+    def _simulate_model_creation(self):
+        """Simulate model creation process."""
+        import time
+        
+        steps = [
+            (20, "📁 Creando estructura de carpetas del proyecto..."),
+            (40, "⚙️ Configurando parámetros del modelo..."),
+            (60, "📄 Generando archivos de configuración..."),
+            (80, "🔧 Inicializando parámetros de entrenamiento..."),
+            (100, "✅ Configuración de modelo creada exitosamente!"),
+        ]
+        
+        for progress, message in steps:
+            time.sleep(0.4)  # Simulate creation time
+            self.training_progress.value = progress / 100
+            self._add_log(message)
+            self.page.update()
+        
+        # Final success message
+        self._add_log("📊 Modelo listo para entrenamiento")
+
     def _start_quick_training(self, e):
         """Start quick training."""
         self.training_progress.value = 0
@@ -1217,9 +1246,11 @@ class NewProjectWizard:
     def _add_log(self, message):
         """Add message to training logs."""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.training_logs.controls.append(
-            ft.Text(f"[{timestamp}] {message}", size=12, color=ft.Colors.GREY_700)
-        )
+        log_entry = ft.Row([
+            ft.Text(f"[{timestamp}]", size=11, color="#888888", width=80),
+            ft.Text(message, size=11, color="#CCCCCC", expand=True),
+        ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.START)
+        self.training_logs.controls.append(log_entry)
         self.page.update()
 
     def _complete_wizard(self):
