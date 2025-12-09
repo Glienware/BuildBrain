@@ -7,6 +7,7 @@ Complete UI implementation with modern dark theme and tabbed interface.
 import flet as ft
 import os
 import time
+import json
 from pathlib import Path
 from typing import Optional, Callable, List, Dict, Any
 from ..core.project_config import ProjectConfig
@@ -570,6 +571,17 @@ class AndroidStyleMainWindow:
             padding=20
         )
 
+    def _load_saved_metrics(self) -> Optional[Dict[str, Any]]:
+        """Load saved metrics from the last training."""
+        try:
+            metrics_json_path = os.path.join(self.project_path, "training_reports", "metrics.json")
+            if os.path.exists(metrics_json_path):
+                with open(metrics_json_path, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error loading saved metrics: {str(e)}")
+        return None
+
     def _create_training_tab(self) -> ft.Container:
         """Create training tab content."""
         # Logs display
@@ -579,8 +591,15 @@ class AndroidStyleMainWindow:
             spacing=2
         )
 
-        # Metrics display
+        # Metrics display - cargar métricas guardadas si existen
         self.metrics_display = ft.Column(spacing=10, visible=False)
+        saved_metrics = self._load_saved_metrics()
+        if saved_metrics:
+            self._populate_metrics_display(saved_metrics)
+            self.metrics_display.visible = True
+            self.download_metrics_btn_visible = True
+        else:
+            self.download_metrics_btn_visible = False
 
         # Progress indicators
         self.progress_bar = ft.ProgressBar(width=400, color=self.PRIMARY_COLOR, visible=False)
@@ -616,7 +635,7 @@ class AndroidStyleMainWindow:
             icon=ft.Icons.DOWNLOAD,
             on_click=self._download_metrics,
             style=ft.ButtonStyle(bgcolor=self.SECONDARY_COLOR, color=self.TEXT_PRIMARY),
-            visible=False
+            visible=self.download_metrics_btn_visible
         )
 
         return ft.Container(
@@ -1586,14 +1605,9 @@ class AndroidStyleMainWindow:
         
         self.page.update()
 
-    def _update_metrics_display(self):
-        """Update metrics display after training completes."""
+    def _populate_metrics_display(self, metrics: Dict[str, Any], class_names: List[str] = None):
+        """Populate metrics display with given metrics dictionary."""
         try:
-            if not hasattr(self.trainer, 'final_metrics') or self.trainer.final_metrics is None:
-                return
-            
-            metrics = self.trainer.final_metrics
-            
             # Clear previous metrics
             self.metrics_display.controls.clear()
             
@@ -1651,8 +1665,11 @@ class AndroidStyleMainWindow:
                 ft.Text("Métricas por Clase", size=12, weight=ft.FontWeight.BOLD, color=self.TEXT_SECONDARY)
             ], spacing=8)
             
-            for class_name in self.trainer.class_names:
-                class_data = metrics['class_report'].get(class_name, {})
+            # Use provided class_names or get from trainer
+            names_to_use = class_names or (self.trainer.class_names if hasattr(self.trainer, 'class_names') else [])
+            
+            for class_name in names_to_use:
+                class_data = metrics.get('class_report', {}).get(class_name, {})
                 precision = class_data.get('precision', 0)
                 recall = class_data.get('recall', 0)
                 f1 = class_data.get('f1-score', 0)
@@ -1673,6 +1690,20 @@ class AndroidStyleMainWindow:
                 class_metrics.controls.append(class_item)
             
             self.metrics_display.controls.append(class_metrics)
+
+        except Exception as e:
+            self._show_snackbar(f"❌ Error mostrando métricas: {str(e)}", self.ERROR_COLOR)
+
+    def _update_metrics_display(self):
+        """Update metrics display after training completes."""
+        try:
+            if not hasattr(self.trainer, 'final_metrics') or self.trainer.final_metrics is None:
+                return
+            
+            metrics = self.trainer.final_metrics
+            
+            # Use the common method to populate metrics
+            self._populate_metrics_display(metrics)
             
             # Show download button
             self.download_metrics_btn.visible = True
