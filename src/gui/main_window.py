@@ -1736,58 +1736,80 @@ class AndroidStyleMainWindow:
             files_list = ft.Column(spacing=10)
             
             # Get all files in the metrics directory
+            files_in_dir = []
             for filename in os.listdir(metrics_dir):
                 file_path = os.path.join(metrics_dir, filename)
                 if os.path.isfile(file_path):
-                    file_size = os.path.getsize(file_path) / 1024  # KB
-                    
-                    def create_download_handler(path):
-                        def on_download(e):
-                            close_modal()
-                            self._copy_to_downloads(path, filename)
-                        return on_download
-                    
-                    file_item = ft.Container(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.IMAGE if filename.endswith('.png') else ft.Icons.FILE_PRESENT),
-                            ft.Column([
-                                ft.Text(filename, size=12, weight=ft.FontWeight.BOLD),
-                                ft.Text(f"{file_size:.1f} KB", size=10, color=self.TEXT_SECONDARY),
-                            ]),
-                            ft.Container(expand=True),
-                            ft.IconButton(
-                                ft.Icons.DOWNLOAD,
-                                icon_color=self.PRIMARY_COLOR,
-                                on_click=create_download_handler(file_path),
-                                tooltip="Descargar"
-                            ),
-                        ]),
-                        bgcolor=self.BACKGROUND_LIGHT,
-                        padding=12,
-                        border_radius=6
-                    )
-                    files_list.controls.append(file_item)
+                    files_in_dir.append((filename, file_path))
+            
+            # Sort files to show images first, then JSON
+            files_in_dir.sort(key=lambda x: (not x[0].endswith('.png'), x[0]))
+            
+            for filename, file_path in files_in_dir:
+                file_size = os.path.getsize(file_path) / 1024  # KB
+                
+                def create_download_handler(path, fname):
+                    def on_download(e):
+                        try:
+                            dest_path = self._copy_to_downloads(path, fname)
+                            self._show_download_success_dialog(dest_path, fname)
+                        except Exception as ex:
+                            self._show_snackbar(f"❌ Error: {str(ex)}", self.ERROR_COLOR)
+                    return on_download
+                
+                # Determine icon based on file type
+                if filename.endswith('.png'):
+                    icon = ft.Icons.IMAGE
+                elif filename.endswith('.json'):
+                    icon = ft.Icons.DATA_OBJECT
+                else:
+                    icon = ft.Icons.FILE_PRESENT
+                
+                file_item = ft.Container(
+                    content=ft.Row([
+                        ft.Icon(icon, color=self.PRIMARY_COLOR),
+                        ft.Column([
+                            ft.Text(filename, size=12, weight=ft.FontWeight.BOLD),
+                            ft.Text(f"{file_size:.1f} KB", size=10, color=self.TEXT_SECONDARY),
+                        ], expand=True),
+                        ft.IconButton(
+                            ft.Icons.DOWNLOAD,
+                            icon_color=self.PRIMARY_COLOR,
+                            on_click=create_download_handler(file_path, filename),
+                            tooltip="Descargar"
+                        ),
+                    ]),
+                    bgcolor=self.BACKGROUND_LIGHT,
+                    padding=12,
+                    border_radius=6,
+                    border=ft.border.all(1, ft.Colors.with_opacity(0.2, self.PRIMARY_COLOR))
+                )
+                files_list.controls.append(file_item)
             
             # Create modal content
             modal_content = ft.Container(
                 content=ft.Column([
-                    ft.Text("Archivos de Reporte", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text("📊 Descargar Reportes", size=16, weight=ft.FontWeight.BOLD),
                     ft.Container(height=10),
-                    ft.Text(f"Se encontraron {len(os.listdir(metrics_dir))} archivo(s)", size=12, color=self.TEXT_SECONDARY),
-                    ft.Container(height=15),
-                    files_list,
+                    ft.Text(f"Se encontraron {len(files_in_dir)} archivo(s)", size=12, color=self.TEXT_SECONDARY),
+                    ft.Divider(height=1, color=self.SURFACE_COLOR),
+                    ft.Container(
+                        content=files_list,
+                        height=300,
+                        expand=True
+                    ),
                     ft.Container(height=15),
                     ft.ElevatedButton(
                         "Cerrar",
                         on_click=close_modal,
-                        style=ft.ButtonStyle(bgcolor="#666666"),
+                        style=ft.ButtonStyle(bgcolor=self.SURFACE_COLOR),
                         width=200
                     ),
                 ], spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                 bgcolor=self.SURFACE_COLOR,
                 padding=30,
                 border_radius=12,
-                width=450,
+                width=500,
                 shadow=ft.BoxShadow(blur_radius=20, color="000000")
             )
             
@@ -1804,7 +1826,7 @@ class AndroidStyleMainWindow:
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
                 alignment=ft.alignment.center,
                 expand=True,
-                on_click=close_modal
+                on_click=lambda e: None if files_list.controls else close_modal()  # No cerrar si hace click en el modal
             )
             overlay.data = 'download_modal'
             
@@ -1814,24 +1836,197 @@ class AndroidStyleMainWindow:
         except Exception as ex:
             self._show_snackbar(f"❌ Error: {str(ex)}", self.ERROR_COLOR)
 
-    def _copy_to_downloads(self, source_path: str, filename: str):
-        """Copy file to user's Downloads folder."""
+    def _copy_to_downloads(self, source_path: str, filename: str) -> str:
+        """Copy file to user's Downloads folder. Returns the destination path."""
         try:
             import shutil
             from pathlib import Path
             
+            # Verify source file exists
+            if not os.path.exists(source_path):
+                raise FileNotFoundError(f"Archivo no encontrado: {source_path}")
             
             # Get Downloads folder
             downloads_dir = str(Path.home() / "Downloads")
+            
+            # Create Downloads folder if it doesn't exist
+            if not os.path.exists(downloads_dir):
+                os.makedirs(downloads_dir)
+            
+            # Create destination path
             dest_path = os.path.join(downloads_dir, f"BuildBrain_{filename}")
+            
+            # If file already exists, add timestamp
+            if os.path.exists(dest_path):
+                import time
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                name, ext = os.path.splitext(filename)
+                dest_path = os.path.join(downloads_dir, f"BuildBrain_{name}_{timestamp}{ext}")
             
             # Copy file
             shutil.copy2(source_path, dest_path)
             
-            self._show_snackbar(f"✅ Descargado: {dest_path}", self.SUCCESS_COLOR)
+            print(f"✅ Archivo copiado a: {dest_path}")
+            return dest_path
             
+        except FileNotFoundError as fe:
+            print(f"❌ Error: {str(fe)}")
+            raise
+        except PermissionError as pe:
+            print(f"❌ Error de permisos: {str(pe)}")
+            raise
         except Exception as e:
-            self._show_snackbar(f"❌ Error descargando: {str(e)}", self.ERROR_COLOR)
+            print(f"❌ Error descargando: {str(e)}")
+            raise
+
+    def _show_download_success_dialog(self, file_path: str, filename: str):
+        """Show a success dialog with download information."""
+        try:
+            def close_dialog(e=None):
+                for ctrl in self.page.overlay:
+                    if isinstance(ctrl, ft.Container) and hasattr(ctrl, 'data') and ctrl.data == 'download_success_dialog':
+                        self.page.overlay.remove(ctrl)
+                        break
+                self.page.update()
+            
+            def open_folder(e):
+                try:
+                    import subprocess
+                    # Open the Downloads folder
+                    subprocess.Popen(['explorer', '/select,', file_path])
+                    close_dialog()
+                except Exception as ex:
+                    self._show_snackbar(f"❌ Error abriendo carpeta: {str(ex)}", self.ERROR_COLOR)
+            
+            def copy_path(e):
+                try:
+                    import subprocess
+                    process = subprocess.Popen(['clip'], stdin=subprocess.PIPE)
+                    process.communicate(file_path.encode('utf-8'))
+                    self._show_snackbar("✅ Ruta copiada al portapapeles", self.SUCCESS_COLOR)
+                except:
+                    try:
+                        import tkinter as tk
+                        root = tk.Tk()
+                        root.withdraw()
+                        root.clipboard_clear()
+                        root.clipboard_append(file_path)
+                        root.update()
+                        root.destroy()
+                        self._show_snackbar("✅ Ruta copiada al portapapeles", self.SUCCESS_COLOR)
+                    except:
+                        self._show_snackbar("❌ No se pudo copiar", self.ERROR_COLOR)
+            
+            # Get file size
+            file_size = os.path.getsize(file_path)
+            if file_size > 1024 * 1024:
+                size_str = f"{file_size / (1024 * 1024):.2f} MB"
+            elif file_size > 1024:
+                size_str = f"{file_size / 1024:.2f} KB"
+            else:
+                size_str = f"{file_size} B"
+            
+            # Create dialog content
+            dialog_content = ft.Container(
+                content=ft.Column([
+                    # Header with success icon
+                    ft.Row([
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, color=self.SUCCESS_COLOR, size=32),
+                        ft.Text("¡Descargado Exitosamente!", size=18, weight=ft.FontWeight.BOLD),
+                    ], spacing=15, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    
+                    ft.Container(height=20),
+                    
+                    # File info
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Row([
+                                ft.Text("📄 Archivo:", size=11, weight=ft.FontWeight.BOLD, width=80),
+                                ft.Text(filename, size=11, color=self.TEXT_SECONDARY),
+                            ]),
+                            ft.Container(height=8),
+                            ft.Row([
+                                ft.Text("💾 Tamaño:", size=11, weight=ft.FontWeight.BOLD, width=80),
+                                ft.Text(size_str, size=11, color=self.TEXT_SECONDARY),
+                            ]),
+                            ft.Container(height=8),
+                            ft.Row([
+                                ft.Text("📍 Ubicación:", size=11, weight=ft.FontWeight.BOLD, width=80),
+                                ft.Text(file_path, size=9, color=self.SECONDARY_COLOR, italic=True),
+                            ]),
+                        ], spacing=5),
+                        bgcolor=self.BACKGROUND_LIGHT,
+                        padding=15,
+                        border_radius=8,
+                        border=ft.border.all(1, ft.Colors.with_opacity(0.2, self.SUCCESS_COLOR))
+                    ),
+                    
+                    ft.Container(height=20),
+                    
+                    # Action buttons
+                    ft.Row([
+                        ft.ElevatedButton(
+                            "Abrir Carpeta",
+                            icon=ft.Icons.FOLDER_OPEN,
+                            on_click=open_folder,
+                            style=ft.ButtonStyle(
+                                bgcolor=self.PRIMARY_COLOR,
+                                color=self.BACKGROUND_DARK
+                            ),
+                            expand=True
+                        ),
+                        ft.ElevatedButton(
+                            "Copiar Ruta",
+                            icon=ft.Icons.COPY,
+                            on_click=copy_path,
+                            style=ft.ButtonStyle(
+                                bgcolor=self.SECONDARY_COLOR,
+                                color=self.BACKGROUND_DARK
+                            ),
+                            expand=True
+                        ),
+                        ft.ElevatedButton(
+                            "Cerrar",
+                            icon=ft.Icons.CLOSE,
+                            on_click=close_dialog,
+                            style=ft.ButtonStyle(
+                                bgcolor=self.SURFACE_COLOR,
+                                color=self.TEXT_PRIMARY
+                            ),
+                            expand=True
+                        ),
+                    ], spacing=10),
+                ], spacing=10),
+                bgcolor=self.SURFACE_COLOR,
+                padding=25,
+                border_radius=12,
+                width=550,
+                shadow=ft.BoxShadow(blur_radius=20, color="000000")
+            )
+            
+            # Create overlay
+            overlay = ft.Container(
+                content=ft.Column([
+                    ft.Container(expand=True),
+                    ft.Row([
+                        ft.Container(expand=True),
+                        dialog_content,
+                        ft.Container(expand=True)
+                    ]),
+                    ft.Container(expand=True)
+                ]),
+                bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+                alignment=ft.alignment.center,
+                expand=True,
+                on_click=close_dialog
+            )
+            overlay.data = 'download_success_dialog'
+            
+            self.page.overlay.append(overlay)
+            self.page.update()
+            
+        except Exception as ex:
+            self._show_snackbar(f"❌ Error: {str(ex)}", self.ERROR_COLOR)
 
     def _copy_logs_to_clipboard(self, e):
         """Copy all logs to clipboard."""
