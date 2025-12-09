@@ -7,8 +7,26 @@ Main entry point for the application.
 
 import flet as ft
 import os
+import sys
 from src.gui.welcome_screen import WelcomeScreen
 from src.gui.main_window import AndroidStyleMainWindow
+
+
+def set_window_icon_windows(icon_path):
+    """Set window icon using ctypes for better Windows compatibility."""
+    try:
+        if sys.platform == 'win32':
+            import ctypes
+            # Load the icon
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                # Try to set icon using Windows API
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("BuildBrain")
+                print(f"Window icon set via Windows API")
+            return True
+    except Exception as e:
+        print(f"Could not set window icon via Windows API: {e}")
+    return False
 
 
 class AppController:
@@ -101,14 +119,28 @@ def main(page: ft.Page):
     page.window_maximizable = True
     page.window_minimizable = True
     
-    # Set window icon
-    logo_path = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
-    if os.path.exists(logo_path):
+    # Set window icon - try multiple methods
+    logo_ico = os.path.join(os.path.dirname(__file__), "assets", "logo.ico")
+    logo_png = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
+    
+    # Method 1: Try ICO file
+    if os.path.exists(logo_ico):
         try:
-            page.window_icon = logo_path
-            print(f"Window icon set from: {logo_path}")
+            page.window_icon = logo_ico
+            print(f"Window icon set from ICO: {logo_ico}")
         except Exception as e:
-            print(f"Could not set window icon: {e}")
+            print(f"Method 1 failed: {e}")
+    
+    # Method 2: Try PNG file
+    if os.path.exists(logo_png):
+        try:
+            page.window_icon = logo_png
+            print(f"Window icon set from PNG: {logo_png}")
+        except Exception as e:
+            print(f"Method 2 failed: {e}")
+    
+    # Method 3: Try Windows API
+    set_window_icon_windows(logo_ico or logo_png)
 
     # Create app controller and show welcome screen
     app_controller = AppController(page)
