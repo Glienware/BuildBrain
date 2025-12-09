@@ -7,6 +7,7 @@ Similar to Android Studio welcome screen with options for new and existing proje
 import flet as ft
 import os
 import json
+import shutil
 from datetime import datetime
 from .new_project_wizard import NewProjectWizard
 
@@ -56,122 +57,145 @@ class WelcomeScreen:
         return projects[:5]  # Show only 5 most recent
 
     def build(self):
-        """Build the welcome screen layout."""
+        """Build the welcome screen layout with premium design."""
         return ft.Container(
             content=ft.Column([
-                # Header
+                # Premium Header
                 ft.Container(
                     content=ft.Row([
-                        ft.Icon(ft.Icons.PSYCHOLOGY, size=48, color=ft.Colors.GREEN_400),
                         ft.Column([
-                            ft.Text("AI/ML Trainer", size=32, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400),
-                            ft.Text("Build and train machine learning models", size=16, color=ft.Colors.GREY_300),
-                        ], spacing=5),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    padding=ft.padding.symmetric(vertical=40),
+                            ft.Row([
+                                ft.Icon(ft.Icons.PSYCHOLOGY, size=32, color="#3DDC84"),
+                                ft.Container(width=12),
+                                ft.Text("BuildBrain", size=28, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                            ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                            ft.Container(height=4),
+                            ft.Text("Crea y entrena modelos de aprendizaje automático profesionalmente", size=13, color="#AAAAAA"),
+                        ], spacing=0, expand=True),
+                    ], alignment=ft.MainAxisAlignment.START),
+                    bgcolor="#0D0D0D",
+                    padding=ft.padding.symmetric(horizontal=32, vertical=20),
+                    border=ft.border.only(bottom=ft.border.BorderSide(1.5, "#2D2D2D")),
                 ),
 
-                # Main content area
-                ft.Row([
-                    # Left side - Actions
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Get started", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_200),
-                            ft.Container(height=20),
+                # Main content area with scroll
+                ft.Container(
+                    content=ft.Column([
+                        # Get Started Section
+                        ft.Column([
+                            ft.Text("Empezar", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                            ft.Container(height=8),
+                            ft.Text("Elige una opción para comenzar", size=15, color="#AAAAAA"),
+                        ], spacing=0),
 
+                        ft.Container(height=32),
+
+                        # Action Cards Row
+                        ft.Row([
                             # New Project Card
-                            ft.Card(
-                                content=ft.Container(
-                                    content=ft.Column([
-                                        ft.Row([
-                                            ft.Icon(ft.Icons.ADD, size=32, color=ft.Colors.GREEN_400),
-                                            ft.Column([
-                                                ft.Text("New Model", size=18, weight=ft.FontWeight.BOLD),
-                                                ft.Text("Create a new machine learning project", size=14, color=ft.Colors.GREY_400),
-                                            ], spacing=5),
-                                        ], alignment=ft.MainAxisAlignment.START),
-                                        ft.Container(height=20),
-                                        ft.ElevatedButton(
-                                            "Create New Model",
-                                            icon=ft.Icons.ARROW_FORWARD,
-                                            style=ft.ButtonStyle(
-                                                bgcolor=ft.Colors.GREEN_400,
-                                                color=ft.Colors.BLACK,
-                                            ),
-                                            on_click=self.show_new_project_wizard
+                            ft.Container(
+                                content=ft.Column([
+                                    ft.Row([
+                                        ft.Icon(ft.Icons.ADD_CIRCLE, size=28, color="#3DDC84"),
+                                        ft.Container(width=12),
+                                        ft.Text("Crear Nuevo Modelo", size=16, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                                    ft.Container(height=12),
+                                    ft.Text(
+                                        "Inicia un nuevo proyecto de aprendizaje automático con la guía paso a paso",
+                                        size=12,
+                                        color="#AAAAAA",
+                                    ),
+                                    ft.Container(height=16),
+                                    ft.ElevatedButton(
+                                        "Crear Modelo",
+                                        icon=ft.Icons.ARROW_FORWARD,
+                                        on_click=self.show_new_project_wizard,
+                                        style=ft.ButtonStyle(
+                                            bgcolor="#3DDC84",
+                                            color=ft.Colors.BLACK,
+                                            padding=ft.padding.symmetric(horizontal=24, vertical=12),
+                                            shape=ft.RoundedRectangleBorder(radius=8),
                                         ),
-                                    ], spacing=15),
-                                    padding=20,
-                                ),
-                                elevation=4,
+                                    ),
+                                ], spacing=0),
+                                padding=ft.padding.all(24),
+                                bgcolor="#1A1A1A",
+                                border=ft.border.all(1.5, "#2D2D2D"),
+                                border_radius=12,
+                                expand=True,
                             ),
 
-                            ft.Container(height=20),
+                            ft.Container(width=20),
 
                             # Open Project Card
-                            ft.Card(
-                                content=ft.Container(
-                                    content=ft.Column([
-                                        ft.Row([
-                                            ft.Icon(ft.Icons.FOLDER_OPEN, size=32, color=ft.Colors.BLUE_400),
-                                            ft.Column([
-                                                ft.Text("Open Model", size=18, weight=ft.FontWeight.BOLD),
-                                                ft.Text("Continue working on an existing project", size=14, color=ft.Colors.GREY_400),
-                                            ], spacing=5),
-                                        ], alignment=ft.MainAxisAlignment.START),
-                                        ft.Container(height=20),
-                                        ft.ElevatedButton(
-                                            "Open Existing Model",
-                                            icon=ft.Icons.FOLDER,
-                                            style=ft.ButtonStyle(
-                                                bgcolor=ft.Colors.BLUE_400,
-                                                color=ft.Colors.BLACK,
-                                            ),
-                                            on_click=self.show_project_selector
-                                        ),
-                                    ], spacing=15),
-                                    padding=20,
-                                ),
-                                elevation=4,
-                            ),
-
-                        ], spacing=10),
-                        width=400,
-                        padding=ft.padding.symmetric(horizontal=20),
-                    ),
-
-                    # Right side - Recent Projects
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Recent Models", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_200),
-                            ft.Container(height=20),
-
                             ft.Container(
-                                content=self.build_recent_projects_list(),
-                                height=400,
-                                padding=10,
+                                content=ft.Column([
+                                    ft.Row([
+                                        ft.Icon(ft.Icons.FOLDER_SPECIAL, size=28, color="#82B1FF"),
+                                        ft.Container(width=12),
+                                        ft.Text("Abrir Modelo Existente", size=16, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                                    ft.Container(height=12),
+                                    ft.Text(
+                                        "Continúa trabajando en un proyecto que ya habías iniciado",
+                                        size=12,
+                                        color="#AAAAAA",
+                                    ),
+                                    ft.Container(height=16),
+                                    ft.ElevatedButton(
+                                        "Abrir Modelo",
+                                        icon=ft.Icons.FOLDER,
+                                        on_click=self.show_project_selector,
+                                        style=ft.ButtonStyle(
+                                            bgcolor="#82B1FF",
+                                            color=ft.Colors.BLACK,
+                                            padding=ft.padding.symmetric(horizontal=24, vertical=12),
+                                            shape=ft.RoundedRectangleBorder(radius=8),
+                                        ),
+                                    ),
+                                ], spacing=0),
+                                padding=ft.padding.all(24),
+                                bgcolor="#1A1A1A",
+                                border=ft.border.all(1.5, "#2D2D2D"),
+                                border_radius=12,
+                                expand=True,
                             ),
+                        ], spacing=0, expand=True),
 
-                        ], spacing=10),
-                        width=500,
-                        padding=ft.padding.symmetric(horizontal=20),
-                    ),
+                        ft.Container(height=40),
 
-                ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.START),
+                        # Recent Projects Section
+                        ft.Column([
+                            ft.Text("Modelos Recientes", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                            ft.Container(height=8),
+                            ft.Text("Abre rápidamente uno de tus proyectos recientes", size=15, color="#AAAAAA"),
+                        ], spacing=0),
 
-                # Footer
-                ft.Container(
-                    content=ft.Row([
-                        ft.Text("AI/ML Trainer v1.0", size=12, color=ft.Colors.GREY_500),
-                        ft.Container(width=20),
-                        ft.Text("Built with Flet & Python", size=12, color=ft.Colors.GREY_500),
-                    ], alignment=ft.MainAxisAlignment.CENTER),
-                    padding=ft.padding.symmetric(vertical=20),
+                        ft.Container(height=24),
+
+                        # Recent Projects Grid with Scroll
+                        ft.Container(
+                            content=ft.Column([
+                                self.build_recent_projects_grid(),
+                            ], spacing=0, expand=True, scroll=ft.ScrollMode.AUTO),
+                            bgcolor="#0D0D0D",
+                            border=ft.border.all(1.5, "#2D2D2D"),
+                            border_radius=12,
+                            padding=ft.padding.all(16),
+                            height=400,
+                        ),
+
+                        ft.Container(height=32),
+
+                    ], spacing=0, scroll=ft.ScrollMode.AUTO),
+                    padding=ft.padding.symmetric(horizontal=32, vertical=24),
+                    expand=True,
                 ),
 
             ], spacing=0),
-            bgcolor=ft.Colors.GREY_900,
-            height=self.page.height,
+            bgcolor="#0D0D0D",
+            expand=True,
         )
 
     def build_recent_projects_list(self):
@@ -209,13 +233,172 @@ class WelcomeScreen:
 
         return ft.Column(project_cards, spacing=10, scroll=ft.ScrollMode.AUTO)
 
+    def build_recent_projects_grid(self):
+        """Build the recent projects grid with professional styling."""
+        if not self.recent_projects:
+            return ft.Container(
+                content=ft.Column([
+                    ft.Icon(ft.Icons.FOLDER_OPEN, size=56, color="#666666"),
+                    ft.Container(height=16),
+                    ft.Text("Sin modelos recientes", size=16, color="#888888", weight=ft.FontWeight.W_600),
+                    ft.Container(height=8),
+                    ft.Text("Crea un nuevo modelo para empezar", size=13, color="#666666"),
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
+                alignment=ft.alignment.center,
+                height=200,
+            )
+
+        # Create grid rows (2 columns)
+        grid_rows = []
+        for i in range(0, len(self.recent_projects), 2):
+            row_projects = self.recent_projects[i:i+2]
+            cards = []
+            
+            for project in row_projects:
+                project_name = project.get('project_name', 'Sin nombre')
+                model_type = project.get('model_type', 'Sin definir')
+                task_type = project.get('task_type', 'Sin especificar')
+                last_modified = project.get('last_modified', 'Desconocido')
+                
+                card = ft.Container(
+                    content=ft.Column([
+                        # Header with icon
+                        ft.Row([
+                            ft.Icon(ft.Icons.FOLDER_SPECIAL, size=24, color="#3DDC84"),
+                            ft.Container(width=12),
+                            ft.Column([
+                                ft.Text(
+                                    project_name,
+                                    size=15,
+                                    weight=ft.FontWeight.W_600,
+                                    color=ft.Colors.WHITE,
+                                    overflow=ft.TextOverflow.ELLIPSIS,
+                                    max_lines=1,
+                                ),
+                                ft.Text(
+                                    f"Actualizado: {last_modified}",
+                                    size=11,
+                                    color="#888888",
+                                ),
+                            ], spacing=0, expand=True),
+                        ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.START),
+                        
+                        ft.Container(height=12),
+                        
+                        # Project info
+                        ft.Column([
+                            ft.Row([
+                                ft.Icon(ft.Icons.DATASET, size=14, color="#82B1FF"),
+                                ft.Container(width=8),
+                                ft.Text(f"Modelo: {model_type}", size=11, color="#AAAAAA"),
+                            ], spacing=0),
+                            ft.Container(height=6),
+                            ft.Row([
+                                ft.Icon(ft.Icons.MODEL_TRAINING, size=14, color="#FFB74D"),
+                                ft.Container(width=8),
+                                ft.Text(f"Tarea: {task_type}", size=11, color="#AAAAAA"),
+                            ], spacing=0),
+                        ], spacing=0),
+                        
+                        ft.Container(height=16),
+                        
+                        # Action buttons
+                        ft.Row([
+                            ft.ElevatedButton(
+                                "Abrir",
+                                icon=ft.Icons.FOLDER_OPEN,
+                                style=ft.ButtonStyle(
+                                    bgcolor="#3DDC84",
+                                    color=ft.Colors.BLACK,
+                                    padding=ft.padding.symmetric(horizontal=20, vertical=10),
+                                    shape=ft.RoundedRectangleBorder(radius=6),
+                                ),
+                                on_click=lambda e, p=project: self.open_project(p),
+                                expand=True,
+                            ),
+                            ft.Container(width=8),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE,
+                                icon_color="#FF6B6B",
+                                tooltip="Eliminar proyecto",
+                                on_click=lambda e, p=project: self.delete_project(p),
+                            ),
+                        ], spacing=0),
+                    ], spacing=0),
+                    padding=ft.padding.all(20),
+                    bgcolor="#1A1A1A",
+                    border=ft.border.all(1.5, "#2D2D2D"),
+                    border_radius=12,
+                    expand=True,
+                    on_hover=lambda e: self._on_project_card_hover(e),
+                )
+                cards.append(card)
+            
+            # Fill empty space if odd number
+            if len(cards) == 1:
+                cards.append(ft.Container(expand=True))
+            
+            grid_rows.append(ft.Row(cards, spacing=16, expand=True))
+
+        return ft.Column(
+            grid_rows,
+            spacing=16,
+            expand=True,
+        )
+
+    def _on_project_card_hover(self, e):
+        """Handle project card hover effect."""
+        if e.data == "true":
+            e.control.border = ft.border.all(1.5, "#3DDC84")
+        else:
+            e.control.border = ft.border.all(1.5, "#2D2D2D")
+        e.control.update()
+
+    def delete_project(self, project):
+        """Delete a project with confirmation."""
+        def confirm_delete(e):
+            dlg.open = False
+            self.page.update()
+            
+            # Delete the project folder
+            try:
+                if os.path.exists(project['path']):
+                    shutil.rmtree(project['path'])
+                # Refresh the welcome screen
+                self.show_welcome_screen()
+            except Exception as ex:
+                print(f"Error deleting project: {ex}")
+
+        def cancel_delete(e):
+            dlg.open = False
+            self.page.update()
+
+        dlg = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Confirmar eliminación"),
+            content=ft.Text(f"¿Deseas eliminar el proyecto '{project.get('project_name', 'Sin nombre')}'? Esta acción no se puede deshacer."),
+            actions=[
+                ft.TextButton("Cancelar", on_click=cancel_delete),
+                ft.TextButton(
+                    "Eliminar",
+                    on_click=confirm_delete,
+                    style=ft.ButtonStyle(color="#FF6B6B"),
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
+
     def open_project(self, project_data):
         """Open an existing project."""
         if self.on_open_project:
             self.on_open_project(project_data)
 
     def show_project_selector(self, e):
-        """Show project selection dialog."""
+        """Show project selection dialog with all projects."""
         def close_dialog(e):
             dlg.open = False
             self.page.update()
@@ -224,30 +407,54 @@ class WelcomeScreen:
             close_dialog(None)
             self.open_project(project)
 
-        # Create project selection dialog
+        # Load all projects (not just recent)
+        all_projects = []
+        if os.path.exists(self.projects_dir):
+            for item in os.listdir(self.projects_dir):
+                item_path = os.path.join(self.projects_dir, item)
+                if os.path.isdir(item_path):
+                    buildb_file = os.path.join(item_path, f"{item}.buildb")
+                    if not os.path.exists(buildb_file):
+                        for file in os.listdir(item_path):
+                            if file.endswith('.buildb'):
+                                buildb_file = os.path.join(item_path, file)
+                                break
+                    
+                    if os.path.exists(buildb_file):
+                        try:
+                            with open(buildb_file, 'r') as f:
+                                project_data = json.load(f)
+                                project_data['filename'] = os.path.basename(buildb_file)
+                                project_data['path'] = item_path
+                                all_projects.append(project_data)
+                        except:
+                            pass
+
+        # Create project selection options
         project_options = []
-        for project in self.recent_projects:
+        for project in all_projects:
             project_options.append(
                 ft.ListTile(
-                    title=ft.Text(project.get('project_name', 'Unnamed Project')),
-                    subtitle=ft.Text(f"Model: {project.get('model_type', 'Unknown')}"),
+                    title=ft.Text(project.get('project_name', 'Proyecto sin nombre')),
+                    subtitle=ft.Text(f"Modelo: {project.get('model_type', 'Desconocido')} | Tarea: {project.get('task_type', 'Desconocida')}"),
                     trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
                     on_click=lambda e, p=project: select_project(p)
                 )
             )
 
         if not project_options:
-            project_options = [ft.ListTile(title=ft.Text("No projects found"))]
+            project_options = [ft.ListTile(title=ft.Text("No hay proyectos disponibles"))]
 
         dlg = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Select Project"),
+            title=ft.Text("Seleccionar Proyecto"),
             content=ft.Container(
                 content=ft.Column(project_options, scroll=ft.ScrollMode.AUTO),
-                height=300,
+                height=400,
+                width=600,
             ),
             actions=[
-                ft.TextButton("Cancel", on_click=close_dialog),
+                ft.TextButton("Cancelar", on_click=close_dialog),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
@@ -263,7 +470,7 @@ class WelcomeScreen:
             on_complete=self.on_project_created or self.on_new_project,
             on_cancel=self.show_welcome_screen
         )
-        self.page.controls.clear()
+        self.page.clean()
         self.page.add(wizard.build())
         self.page.update()
 
@@ -271,7 +478,7 @@ class WelcomeScreen:
         """Show the welcome screen again."""
         # Refresh recent projects list
         self.recent_projects = self.load_recent_projects()
-        self.page.controls.clear()
+        self.page.clean()
         self.page.add(self.build())
         self.page.update()
 
