@@ -321,7 +321,7 @@ class WelcomeScreen:
                                 icon=ft.Icons.DELETE,
                                 icon_color="#FF6B6B",
                                 tooltip="Eliminar proyecto",
-                                on_click=lambda e, p=project: self.delete_project(p),
+                                on_click=self._create_delete_handler(project),
                             ),
                         ], spacing=0),
                     ], spacing=0),
@@ -354,43 +354,76 @@ class WelcomeScreen:
             e.control.border = ft.border.all(1.5, "#2D2D2D")
         e.control.update()
 
+    def _create_delete_handler(self, project):
+        """Create a delete handler for a specific project."""
+        def handler(e):
+            print(f"DEBUG: Delete button clicked for project: {project.get('project_name')}")
+            self.delete_project(project)
+        return handler
+
     def delete_project(self, project):
-        """Delete a project with confirmation."""
-        def confirm_delete(e):
-            dlg.open = False
-            self.page.update()
-            
-            # Delete the project folder
-            try:
-                if os.path.exists(project['path']):
-                    shutil.rmtree(project['path'])
-                # Refresh the welcome screen
+        """Delete a project immediately with confirmation via snackbar."""
+        print(f"DEBUG: delete_project called for {project.get('project_name')}")
+        
+        project_name = project.get('project_name', 'Sin nombre')
+        project_path = project.get('path')
+        
+        print(f"DEBUG: Project path: {project_path}")
+        print(f"DEBUG: Project path exists: {os.path.exists(project_path) if project_path else 'No path'}")
+        
+        try:
+            if project_path and os.path.exists(project_path):
+                print(f"DEBUG: Deleting folder: {project_path}")
+                shutil.rmtree(project_path)
+                print(f"DEBUG: Folder deleted successfully")
+                
+                # Show success message
+                snack = ft.SnackBar(
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.CHECK_CIRCLE, color="#3DDC84"),
+                            ft.Text(f"✓ Proyecto '{project_name}' eliminado exitosamente", color=ft.Colors.WHITE),
+                        ], spacing=10),
+                        padding=10,
+                    ),
+                    bgcolor="#1A1A1A",
+                    duration=3000,
+                )
+                self.page.snack_bar = snack
+                snack.open = True
+                
+                # Reload recent projects
+                self.recent_projects = self.load_recent_projects()
+                print(f"DEBUG: Recent projects reloaded: {len(self.recent_projects)} projects")
+                
+                # Refresh welcome screen
+                print(f"DEBUG: Refreshing welcome screen")
+                import time
+                time.sleep(0.5)  # Brief delay to show the snackbar
                 self.show_welcome_screen()
-            except Exception as ex:
-                print(f"Error deleting project: {ex}")
-
-        def cancel_delete(e):
-            dlg.open = False
+            else:
+                print(f"DEBUG: Path not found or doesn't exist")
+                snack = ft.SnackBar(
+                    ft.Text(f"Error: No se encontró la carpeta del proyecto", color=ft.Colors.WHITE),
+                    bgcolor="#FF6B6B",
+                    duration=3000,
+                )
+                self.page.snack_bar = snack
+                snack.open = True
+                self.page.update()
+                
+        except Exception as ex:
+            print(f"Error deleting project: {ex}")
+            import traceback
+            traceback.print_exc()
+            snack = ft.SnackBar(
+                ft.Text(f"Error al eliminar proyecto: {str(ex)}", color=ft.Colors.WHITE),
+                bgcolor="#FF6B6B",
+                duration=3000,
+            )
+            self.page.snack_bar = snack
+            snack.open = True
             self.page.update()
-
-        dlg = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Confirmar eliminación"),
-            content=ft.Text(f"¿Deseas eliminar el proyecto '{project.get('project_name', 'Sin nombre')}'? Esta acción no se puede deshacer."),
-            actions=[
-                ft.TextButton("Cancelar", on_click=cancel_delete),
-                ft.TextButton(
-                    "Eliminar",
-                    on_click=confirm_delete,
-                    style=ft.ButtonStyle(color="#FF6B6B"),
-                ),
-            ],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-
-        self.page.dialog = dlg
-        dlg.open = True
-        self.page.update()
 
     def open_project(self, project_data):
         """Open an existing project."""
