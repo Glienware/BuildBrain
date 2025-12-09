@@ -68,58 +68,94 @@ class NewProjectWizard:
 
         return ft.Container(
             content=ft.Column([
-                # Header with navigation
+                # Premium Header
                 ft.Container(
                     content=ft.Row([
-                        ft.IconButton(
-                            ft.Icons.CLOSE,
-                            on_click=self._show_cancel_dialog,
-                            tooltip="Cancelar",
-                            icon_size=28
+                        # Left section with close button
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Container(
+                                    content=ft.IconButton(
+                                        ft.Icons.CLOSE,
+                                        on_click=self._show_cancel_dialog,
+                                        tooltip="Cancelar",
+                                        icon_size=24,
+                                        icon_color="#FF6B6B"
+                                    ),
+                                    width=50,
+                                    height=50,
+                                    alignment=ft.alignment.center,
+                                ),
+                                ft.Container(width=5),
+                                ft.Column([
+                                    ft.Text("Crear Nuevo Modelo", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                    ft.Text("Configura tu proyecto de ML paso a paso", size=12, color="#B0B0B0"),
+                                ], spacing=3),
+                            ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                            expand=True
                         ),
-                        ft.Container(width=10),
-                        ft.Column([
-                            ft.Text("Crear Nuevo Modelo", size=24, weight=ft.FontWeight.BOLD),
-                        ], expand=True),
+                        
+                        # Right section with navigation buttons
                         ft.Row([
                             self.back_button,
-                            ft.Container(width=10),
+                            ft.Container(width=8),
                             self.next_button,
-                        ], spacing=0),
-                        ft.Container(width=20),
-                        ft.Text("AI/ML Trainer", size=14, color=ft.Colors.GREY_600),
-                    ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    bgcolor=ft.Colors.GREY_800,
-                    padding=ft.padding.all(20),
+                        ], spacing=0, alignment=ft.MainAxisAlignment.END),
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    bgcolor="#0D0D0D",
+                    padding=ft.padding.symmetric(horizontal=24, vertical=16),
+                    border=ft.border.only(bottom=ft.border.BorderSide(1.5, "#2D2D2D"))
                 ),
 
-                # Main content - Scrollable
+                # Main content area
                 ft.Container(
                     content=ft.Row([
-                        # Left side - Step indicator
-                        ft.Container(
-                            content=self.step_indicator,
-                            width=300,
-                            bgcolor=ft.Colors.GREY_900,
-                            padding=ft.padding.all(20),
-                        ),
-
-                        # Right side - Content
+                        # Left Sidebar - Step Indicator
                         ft.Container(
                             content=ft.Column([
-                                self.content_area
-                            ], scroll=ft.ScrollMode.AUTO, spacing=0),
-                            expand=True,
-                            bgcolor=ft.Colors.GREY_800,
-                            padding=ft.padding.all(30),
+                                ft.Container(height=8),
+                                ft.Text("Pasos", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                ft.Container(height=16),
+                                self.step_indicator,
+                                ft.Container(expand=True),
+                                # Footer info
+                                ft.Divider(color="#2D2D2D", height=1),
+                                ft.Container(height=12),
+                                ft.Text(
+                                    f"Paso {self.current_step + 1} de {len(self.steps)}",
+                                    size=11,
+                                    color="#888888"
+                                ),
+                            ], spacing=0, expand=True),
+                            width=300,
+                            bgcolor="#1A1A1A",
+                            padding=ft.padding.symmetric(horizontal=20, vertical=20),
+                            border=ft.border.only(right=ft.border.BorderSide(1.5, "#2D2D2D"))
                         ),
-                    ], alignment=ft.MainAxisAlignment.START),
+
+                        # Right Content Area
+                        ft.Container(
+                            content=ft.Column([
+                                ft.Container(height=20),
+                                ft.Container(
+                                    content=ft.Column([
+                                        self.content_area,
+                                    ], spacing=24, expand=True),
+                                    expand=True,
+                                ),
+                                ft.Container(height=30),
+                            ], scroll=ft.ScrollMode.AUTO, spacing=0, expand=True),
+                            expand=True,
+                            bgcolor="#0D0D0D",
+                            padding=ft.padding.symmetric(horizontal=40, vertical=0),
+                        ),
+                    ], spacing=0, expand=True),
                     expand=True,
                 ),
 
             ], spacing=0),
-            bgcolor=ft.Colors.GREY_900,
-            height=self.page.height - 100,  # Leave some space
+            bgcolor="#0D0D0D",
+            expand=True
         )
 
     def _build_step_indicator(self):
@@ -129,60 +165,96 @@ class NewProjectWizard:
             is_active = i == self.current_step
             is_completed = i < self.current_step
 
+            # Determine colors
+            if is_completed:
+                bg_color = "#3DDC84"
+                text_color = ft.Colors.WHITE
+                desc_color = "#3DDC84"
+                highlight_bg = None
+            elif is_active:
+                bg_color = "#82B1FF"
+                text_color = ft.Colors.WHITE
+                desc_color = "#82B1FF"
+                highlight_bg = ft.Colors.with_opacity(0.15, "#82B1FF")
+            else:
+                bg_color = "#3A3A3A"
+                text_color = "#888888"
+                desc_color = "#666666"
+                highlight_bg = None
+
             step_items.append(
                 ft.Container(
                     content=ft.Row([
-                        # Step circle
+                        # Step circle with icon or number
                         ft.Container(
-                            content=ft.Text(
-                                str(i + 1),
-                                size=16,
-                                weight=ft.FontWeight.BOLD,
-                                color=ft.Colors.WHITE if is_active or is_completed else ft.Colors.GREY_600,
-                            ),
-                            width=40,
-                            height=40,
-                            bgcolor=ft.Colors.GREEN_600 if is_completed else (ft.Colors.BLUE_600 if is_active else ft.Colors.GREY_700),
-                            border_radius=20,
-                            alignment=ft.alignment.center,
+                            content=ft.Stack([
+                                # Background circle
+                                ft.Container(
+                                    width=44,
+                                    height=44,
+                                    bgcolor=bg_color,
+                                    border_radius=22,
+                                ),
+                                # Icon or number
+                                ft.Container(
+                                    content=ft.Icon(ft.Icons.CHECK, size=22, color=ft.Colors.WHITE) if is_completed
+                                    else ft.Text(
+                                        str(i + 1),
+                                        size=18,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=text_color,
+                                    ),
+                                    width=44,
+                                    height=44,
+                                    alignment=ft.alignment.center,
+                                ),
+                            ], width=44, height=44),
+                            width=44,
+                            height=44,
                         ),
 
                         # Step text
                         ft.Container(
                             content=ft.Column([
                                 ft.Text(
-                                    step_name,
-                                    size=14,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=ft.Colors.WHITE if is_active or is_completed else ft.Colors.GREY_500,
+                                    f"Paso {i + 1}: {step_name}",
+                                    size=13,
+                                    weight=ft.FontWeight.W_600,
+                                    color=text_color,
                                 ),
                                 ft.Text(
                                     self._get_step_description(i),
-                                    size=12,
-                                    color=ft.Colors.GREY_400,
+                                    size=10,
+                                    color=desc_color if is_active else "#666666",
+                                    max_lines=2,
                                 ),
-                            ], spacing=2, tight=True),
-                            padding=ft.padding.only(left=15),
+                            ], spacing=3, tight=True),
+                            padding=ft.padding.only(left=12),
+                            expand=True,
                         ),
-                    ], alignment=ft.MainAxisAlignment.START),
-                    padding=ft.padding.symmetric(vertical=15),
+                    ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=ft.padding.symmetric(horizontal=12, vertical=14),
+                    border_radius=10,
+                    bgcolor=highlight_bg,
+                    border=ft.border.all(1.5, bg_color) if is_active else None,
                 )
             )
 
             # Add connector line (except for last item)
             if i < len(self.steps) - 1:
+                connector_color = "#3DDC84" if is_completed else "#3A3A3A"
                 step_items.append(
                     ft.Container(
                         content=ft.Container(
-                            width=2,
-                            height=30,
-                            bgcolor=ft.Colors.GREEN_600 if is_completed else ft.Colors.GREY_700,
+                            width=2.5,
+                            height=16,
+                            bgcolor=connector_color,
                         ),
-                        padding=ft.padding.only(left=19),
+                        padding=ft.padding.only(left=20),
                     )
                 )
 
-        return ft.Column(step_items, spacing=0, scroll=ft.ScrollMode.AUTO)
+        return ft.Column(step_items, spacing=2, scroll=ft.ScrollMode.AUTO)
 
     def _get_step_description(self, step_index):
         """Get description for each step."""
@@ -216,56 +288,73 @@ class NewProjectWizard:
         """Refresh the current step content."""
         # Rebuild the content area
         self.content_area.content = self._build_content_area()
-        self.page.update()
-
-    def _build_content_area(self):
-        """Build the main content area for current step."""
-        if self.current_step == 0:
-            return self._build_project_name_step()
-        elif self.current_step == 1:
-            return self._build_task_config_step()
-        elif self.current_step == 2:
-            return self._build_class_management_step()
-        elif self.current_step == 3:
-            return self._build_balanced_class_step()
-        elif self.current_step == 4:
-            return self._build_dataset_upload_step()
-        elif self.current_step == 5:
-            return self._build_training_logs_step()
-        return ft.Text("Step not implemented")
 
     def _build_project_name_step(self):
         """Build project name input step."""
         project_name_field = ft.TextField(
             label="Nombre del Proyecto",
-            hint_text="Ingresa un nombre para tu proyecto ML",
+            hint_text="ej: MiClasificador, SegmentadorImg",
             value=self.project_data["project_name"],
             on_change=lambda e: self._update_project_name(e.data),
-            width=400,
+            min_lines=1,
             border_radius=8,
+            border_color="#3A3A3A",
+            focused_border_color="#3DDC84",
+            text_style=ft.TextStyle(size=16),
         )
 
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("Nombre del Proyecto", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
-                ft.Text("Dale a tu proyecto de aprendizaje automático un nombre significativo", size=16, color=ft.Colors.GREY_600),
-                ft.Container(height=40),
-
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Icon(ft.Icons.EDIT, size=48, color=ft.Colors.BLUE_600),
-                            ft.Container(height=20),
-                            project_name_field,
-                            ft.Container(height=20),
-                            ft.Text("This name will be used to save your project file", size=12, color=ft.Colors.GREY_500),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
-                        padding=40,
-                    ),
-                    elevation=4,
+        return ft.Column([
+            # Header
+            ft.Column([
+                ft.Text("Nombre del Proyecto", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text(
+                    "Dale a tu proyecto de ML un nombre único y descriptivo",
+                    size=15,
+                    color="#AAAAAA",
                 ),
-            ], horizontal_alignment=ft.CrossAxisAlignment.START, spacing=20),
-        )
+            ], spacing=0),
+
+            ft.Container(height=40),
+
+            # Input area with icon
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.FOLDER_SPECIAL, size=24, color="#3DDC84"),
+                        ft.Container(width=16),
+                        ft.Column([
+                            ft.Text("Nombre único para tu proyecto", size=12, color="#888888", weight=ft.FontWeight.W_500),
+                            ft.Container(height=12),
+                            ft.Container(
+                                content=project_name_field,
+                                expand=True,
+                            ),
+                        ], expand=True, spacing=0),
+                    ], vertical_alignment=ft.CrossAxisAlignment.START, expand=True, spacing=0),
+                    
+                    ft.Container(height=20),
+                    
+                    ft.Row([
+                        ft.Icon(ft.Icons.INFO_OUTLINE, size=18, color="#666666"),
+                        ft.Container(width=12),
+                        ft.Column([
+                            ft.Text(
+                                "Este nombre se usará para guardar tu proyecto y crear la carpeta del modelo",
+                                size=12,
+                                color="#888888",
+                            ),
+                        ], expand=True),
+                    ], spacing=0),
+                ], spacing=0),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(24),
+            ),
+
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
 
     def _build_task_config_step(self):
         """Build task configuration step."""
@@ -331,144 +420,272 @@ class NewProjectWizard:
             width=150,
         )
 
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("Task Configuration", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
-                ft.Text("Configure your model and training parameters", size=16, color=ft.Colors.GREY_600),
-                ft.Container(height=30),
-
-                # Model and Task Selection
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Model & Task", size=18, weight=ft.FontWeight.BOLD),
-                            ft.Container(height=15),
-                            ft.Row([model_dropdown, ft.Container(width=20), task_radio]),
-                        ], spacing=15),
-                        padding=20,
-                    ),
-                    elevation=2,
+        return ft.Column([
+            # Header
+            ft.Column([
+                ft.Text("Configuración del Modelo", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text(
+                    "Elige el tipo de modelo y ajusta los parámetros de entrenamiento",
+                    size=15,
+                    color="#AAAAAA",
                 ),
+            ], spacing=0),
 
-                ft.Container(height=20),
+            ft.Container(height=32),
 
-                # Training Settings
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Training Settings", size=18, weight=ft.FontWeight.BOLD),
-                            ft.Container(height=15),
-                            ft.Row([epochs_field, batch_size_field]),
-                            ft.Container(height=10),
-                            ft.Row([learning_rate_field, optimizer_dropdown]),
-                        ], spacing=15),
-                        padding=20,
-                    ),
-                    elevation=2,
-                ),
+            # Tipo de Modelo
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.SCHEMA, size=22, color="#3DDC84"),
+                        ft.Container(width=16),
+                        ft.Text("Tipo de Modelo", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=16),
+                    model_dropdown,
+                ], spacing=0),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+            ),
 
-            ], horizontal_alignment=ft.CrossAxisAlignment.START, spacing=20),
-        )
+            ft.Container(height=20),
+
+            # Tipo de Tarea
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.CATEGORY, size=22, color="#82B1FF"),
+                        ft.Container(width=16),
+                        ft.Text("Tipo de Tarea", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=16),
+                    task_radio,
+                ], spacing=0),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+            ),
+
+            ft.Container(height=20),
+
+            # Configuración de Entrenamiento
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.TUNE, size=22, color="#FFB74D"),
+                        ft.Container(width=16),
+                        ft.Text("Parámetros de Entrenamiento", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=16),
+                    
+                    ft.Column([
+                        ft.Row([
+                            ft.Column([
+                                ft.Text("Épocas", size=12, color="#888888"),
+                                ft.Container(height=6),
+                                epochs_field,
+                            ], expand=True, spacing=0),
+                            ft.Container(width=16),
+                            ft.Column([
+                                ft.Text("Batch Size", size=12, color="#888888"),
+                                ft.Container(height=6),
+                                batch_size_field,
+                            ], expand=True, spacing=0),
+                        ], spacing=0),
+                        ft.Container(height=12),
+                        ft.Row([
+                            ft.Column([
+                                ft.Text("Learning Rate", size=12, color="#888888"),
+                                ft.Container(height=6),
+                                learning_rate_field,
+                            ], expand=True, spacing=0),
+                            ft.Container(width=16),
+                            ft.Column([
+                                ft.Text("Optimizador", size=12, color="#888888"),
+                                ft.Container(height=6),
+                                optimizer_dropdown,
+                            ], expand=True, spacing=0),
+                        ], spacing=0),
+                    ], spacing=0),
+                ], spacing=0),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+            ),
+
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
 
     def _build_class_management_step(self):
         """Build class management step."""
         # Class input
         class_name_field = ft.TextField(
-            label="Class Name",
-            hint_text="Enter class name",
-            width=300,
+            label="Nombre de la Clase",
+            hint_text="ej: Gato, Perro, Pájaro",
+            border_radius=8,
+            border_color="#3A3A3A",
+            focused_border_color="#82B1FF",
+            text_style=ft.TextStyle(size=14),
         )
 
         add_class_button = ft.ElevatedButton(
-            "Add Class",
-            icon=ft.Icons.ADD,
+            "Agregar Clase",
+            icon=ft.Icons.ADD_CIRCLE,
             on_click=lambda e: self._add_class(class_name_field.value),
-            style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE),
+            style=ft.ButtonStyle(
+                bgcolor="#82B1FF",
+                color=ft.Colors.BLACK,
+                padding=ft.padding.symmetric(horizontal=20, vertical=12),
+                shape=ft.RoundedRectangleBorder(radius=8),
+            ),
         )
 
         # Classes list
-        self.classes_list = ft.Column(spacing=10)
+        self.classes_list = ft.Column(spacing=8)
         self._update_classes_display()
 
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("Class Management", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
-                ft.Text("Define the classes for your classification task", size=16, color=ft.Colors.GREY_600),
-                ft.Container(height=30),
-
-                # Add class section
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Row([
-                            class_name_field,
-                            ft.Container(width=10),
-                            add_class_button,
-                        ], alignment=ft.MainAxisAlignment.START),
-                        padding=20,
-                    ),
-                    elevation=2,
+        return ft.Column([
+            # Header
+            ft.Column([
+                ft.Text("Gestión de Clases", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text(
+                    "Define las categorías que tu modelo necesita clasificar",
+                    size=15,
+                    color="#AAAAAA",
                 ),
+            ], spacing=0),
 
-                ft.Container(height=20),
+            ft.Container(height=32),
 
-                # Classes list
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Defined Classes", size=18, weight=ft.FontWeight.BOLD),
-                            ft.Container(height=15),
-                            ft.Container(
-                                content=self.classes_list,
-                                height=200,
-                                border=ft.border.all(1, ft.Colors.GREY_300),
-                                border_radius=8,
-                                padding=10,
+            # Add class input
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.PLAYLIST_ADD, size=22, color="#82B1FF"),
+                        ft.Container(width=16),
+                        ft.Text("Nueva Clase", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=16),
+                    ft.Row([
+                        ft.Container(
+                            content=class_name_field,
+                            expand=True,
+                        ),
+                        ft.Container(width=12),
+                        add_class_button,
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ], spacing=0),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+            ),
+
+            ft.Container(height=24),
+
+            # Classes list
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.LABEL_OUTLINE, size=22, color="#3DDC84"),
+                        ft.Container(width=16),
+                        ft.Text("Clases Definidas", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                        ft.Container(expand=True),
+                        ft.Container(
+                            content=ft.Text(
+                                f"{len(self.project_data['classes'])} clases",
+                                size=12,
+                                color="#3DDC84",
+                                weight=ft.FontWeight.W_600,
                             ),
-                        ], spacing=15),
-                        padding=20,
+                            padding=ft.padding.symmetric(horizontal=12, vertical=4),
+                            bgcolor=ft.Colors.with_opacity(0.2, "#3DDC84"),
+                            border_radius=4,
+                        ),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=16),
+                    ft.Container(
+                        content=self.classes_list,
+                        expand=True,
+                        bgcolor="#0D0D0D",
+                        border_radius=8,
+                        padding=ft.padding.all(12),
                     ),
-                    elevation=2,
-                ),
+                ], spacing=0, expand=True),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+                expand=True,
+            ),
 
-            ], horizontal_alignment=ft.CrossAxisAlignment.START, spacing=20),
-        )
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
 
     def _build_balanced_class_step(self):
         """Build balanced class analysis step."""
         # Class distribution visualization
-        self.balance_chart = ft.Column()
+        self.balance_chart = ft.Column(spacing=8)
 
         balance_button = ft.ElevatedButton(
-            "Balance Classes",
-            icon=ft.Icons.BALANCE,
+            "Balancear Clases",
+            icon=ft.Icons.SCALE,
             on_click=self._balance_classes,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.ORANGE_600, color=ft.Colors.WHITE),
+            style=ft.ButtonStyle(
+                bgcolor="#FFB74D",
+                color=ft.Colors.BLACK,
+                padding=ft.padding.symmetric(horizontal=24, vertical=12),
+                shape=ft.RoundedRectangleBorder(radius=8),
+            ),
         )
 
         self._update_balance_display()
 
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("Class Balance Analysis", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
-                ft.Text("Check and balance your class distribution", size=16, color=ft.Colors.GREY_600),
-                ft.Container(height=30),
-
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Class Distribution", size=18, weight=ft.FontWeight.BOLD),
-                            ft.Container(height=15),
-                            self.balance_chart,
-                            ft.Container(height=20),
-                            balance_button,
-                        ], spacing=15),
-                        padding=20,
-                    ),
-                    elevation=2,
+        return ft.Column([
+            # Header
+            ft.Column([
+                ft.Text("Análisis de Balance", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text(
+                    "Verifica y equilibra la distribución de clases en tu dataset",
+                    size=15,
+                    color="#AAAAAA",
                 ),
+            ], spacing=0),
 
-            ], horizontal_alignment=ft.CrossAxisAlignment.START, spacing=20),
-        )
+            ft.Container(height=32),
+
+            # Balance visualization
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.ASSESSMENT, size=22, color="#FFB74D"),
+                        ft.Container(width=16),
+                        ft.Text("Distribución de Clases", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=16),
+                    self.balance_chart,
+                    ft.Container(height=20),
+                    ft.Row([
+                        ft.Container(expand=True),
+                        balance_button,
+                    ], spacing=0),
+                ], spacing=0, expand=True),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+                expand=True,
+            ),
+
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
 
     def _build_dataset_upload_step(self):
         """Build dataset upload step with class-based organization."""
@@ -476,23 +693,31 @@ class NewProjectWizard:
         if not hasattr(self, 'dataset_uploader'):
             self.dataset_uploader = DatasetUploader(self.page, existing_classes=self.project_data.get("classes", []), on_update=self._refresh_current_step)
 
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("Dataset Classes", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
-                ft.Text("Upload images for each class defined in the previous step", size=16, color=ft.Colors.GREY_600),
-                ft.Container(height=30),
-
-                # Dataset uploader component
-                self.dataset_uploader.build(),
-
-                # Dataset summary
-                ft.Container(
-                    content=self._build_dataset_summary(),
-                    margin=ft.margin.only(top=20),
+        return ft.Column([
+            # Header
+            ft.Column([
+                ft.Text("Carga de Dataset", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text(
+                    "Sube las imágenes para cada clase que definiste anteriormente",
+                    size=15,
+                    color="#AAAAAA",
                 ),
+            ], spacing=0),
 
-            ], horizontal_alignment=ft.CrossAxisAlignment.START, spacing=20),
-        )
+            ft.Container(height=32),
+
+            # Dataset uploader component
+            self.dataset_uploader.build(),
+
+            # Dataset summary
+            ft.Container(
+                content=self._build_dataset_summary(),
+                margin=ft.margin.only(top=16),
+            ),
+
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
 
     def _build_dataset_summary(self):
         """Build dataset summary card."""
@@ -501,120 +726,228 @@ class NewProjectWizard:
 
         dataset_info = self.dataset_uploader.get_dataset_info()
 
-        return ft.Card(
-            content=ft.Container(
-                content=ft.Column([
-                    ft.Text("Dataset Summary", size=18, weight=ft.FontWeight.BOLD),
-                    ft.Container(height=10),
-                    ft.Row([
-                        ft.Column([
-                            ft.Text(f"Classes: {dataset_info['num_classes']}", size=14),
-                            ft.Text(f"Total Images: {dataset_info['total_images']}", size=14),
-                        ], spacing=5),
-                        ft.Container(width=50),
-                        ft.Column([
-                            ft.Text("Class Distribution:", size=14, weight=ft.FontWeight.BOLD),
-                            ft.Container(
-                                content=ft.Column([
-                                    ft.Text(f"• {class_name}: {len(images)} images", size=12)
-                                    for class_name, images in dataset_info['classes'].items()
-                                ], spacing=2, scroll=ft.ScrollMode.AUTO),
-                                height=100,
-                            ),
-                        ], spacing=5, expand=True),
-                    ], alignment=ft.MainAxisAlignment.START),
-                ], spacing=10),
-                padding=20,
-            ),
-            elevation=2,
+        # Build class distribution items
+        class_items = []
+        for class_name, images in dataset_info['classes'].items():
+            num_images = len(images)
+            percentage = (num_images / max(dataset_info['total_images'], 1)) * 100 if dataset_info['total_images'] > 0 else 0
+            
+            class_items.append(
+                ft.Container(
+                    content=ft.Row([
+                        ft.Container(
+                            content=ft.Text(class_name, size=13, weight=ft.FontWeight.W_500, color=ft.Colors.WHITE),
+                            expand=True,
+                        ),
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Text(f"{num_images}", size=12, color="#3DDC84", weight=ft.FontWeight.BOLD),
+                                ft.Text("imágenes", size=11, color="#888888"),
+                            ], spacing=4),
+                            padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                            bgcolor=ft.Colors.with_opacity(0.1, "#3DDC84"),
+                            border_radius=4,
+                        ),
+                    ], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                    bgcolor="#0D0D0D",
+                    border_radius=6,
+                    border=ft.border.all(1, "#2D2D2D"),
+                )
+            )
+
+        return ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(ft.Icons.DATASET, size=22, color="#3DDC84"),
+                    ft.Container(width=16),
+                    ft.Text("Resumen del Dataset", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Container(height=16),
+                
+                ft.Row([
+                    # Stats cards
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Clases", size=12, color="#888888"),
+                            ft.Container(height=6),
+                            ft.Text(str(dataset_info['num_classes']), size=24, weight=ft.FontWeight.BOLD, color="#3DDC84"),
+                        ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        expand=True,
+                        bgcolor="#0D0D0D",
+                        padding=ft.padding.all(16),
+                        border_radius=8,
+                        border=ft.border.all(1, "#2D2D2D"),
+                    ),
+                    ft.Container(width=12),
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Total de Imágenes", size=12, color="#888888"),
+                            ft.Container(height=6),
+                            ft.Text(str(dataset_info['total_images']), size=24, weight=ft.FontWeight.BOLD, color="#82B1FF"),
+                        ], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        expand=True,
+                        bgcolor="#0D0D0D",
+                        padding=ft.padding.all(16),
+                        border_radius=8,
+                        border=ft.border.all(1, "#2D2D2D"),
+                    ),
+                ], spacing=0),
+                
+                ft.Container(height=16),
+                
+                # Class distribution
+                ft.Text("Distribución por Clase", size=12, color="#888888", weight=ft.FontWeight.BOLD),
+                ft.Container(height=10),
+                ft.Column(
+                    controls=class_items,
+                    spacing=6,
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+            ], spacing=0),
+            bgcolor="#1A1A1A",
+            border=ft.border.all(1.5, "#2D2D2D"),
+            border_radius=10,
+            padding=ft.padding.all(20),
         )
 
     def _build_training_logs_step(self):
         """Build training and logs step."""
         # Training controls
         quick_train_button = ft.ElevatedButton(
-            "Quick Training",
-            icon=ft.Icons.PLAY_ARROW,
+            "Entrenamiento Rápido",
+            icon=ft.Icons.FLASH_ON,
             on_click=self._start_quick_training,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE),
-            width=200,
+            style=ft.ButtonStyle(
+                bgcolor="#3DDC84",
+                color=ft.Colors.BLACK,
+                padding=ft.padding.symmetric(horizontal=28, vertical=14),
+                shape=ft.RoundedRectangleBorder(radius=8),
+            ),
         )
 
         advanced_train_button = ft.ElevatedButton(
-            "Advanced Training",
-            icon=ft.Icons.SETTINGS,
+            "Entrenamiento Avanzado",
+            icon=ft.Icons.TUNE,
             on_click=self._start_advanced_training,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.PURPLE_600, color=ft.Colors.WHITE),
-            width=200,
+            style=ft.ButtonStyle(
+                bgcolor="#82B1FF",
+                color=ft.Colors.BLACK,
+                padding=ft.padding.symmetric(horizontal=28, vertical=14),
+                shape=ft.RoundedRectangleBorder(radius=8),
+            ),
         )
 
         # Progress and logs
-        self.training_progress = ft.ProgressBar(value=0, width=400)
-        self.training_logs = ft.Column(scroll=ft.ScrollMode.AUTO, height=200)
+        self.training_progress = ft.ProgressBar(value=0)
+        self.training_logs = ft.Column(scroll=ft.ScrollMode.AUTO)
 
-        return ft.Container(
-            content=ft.Column([
-                ft.Text("Training & Logs", size=28, weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_800),
-                ft.Text("Start training your model and monitor progress", size=16, color=ft.Colors.GREY_600),
-                ft.Container(height=30),
-
-                # Training buttons
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Row([
-                            quick_train_button,
-                            ft.Container(width=20),
-                            advanced_train_button,
-                        ], alignment=ft.MainAxisAlignment.CENTER),
-                        padding=30,
-                    ),
-                    elevation=2,
+        return ft.Column([
+            # Header
+            ft.Column([
+                ft.Text("Entrenamiento y Logs", size=32, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Container(height=8),
+                ft.Text(
+                    "Inicia el entrenamiento de tu modelo y monitorea el progreso",
+                    size=15,
+                    color="#AAAAAA",
                 ),
+            ], spacing=0),
 
-                ft.Container(height=20),
+            ft.Container(height=32),
 
-                # Progress and logs
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column([
-                            ft.Text("Training Progress", size=18, weight=ft.FontWeight.BOLD),
-                            ft.Container(height=15),
-                            self.training_progress,
-                            ft.Container(height=20),
-                            ft.Text("Training Logs", size=16, weight=ft.FontWeight.BOLD),
-                            ft.Container(
-                                content=self.training_logs,
-                                height=200,
-                                border=ft.border.all(1, ft.Colors.GREY_300),
-                                border_radius=8,
-                                padding=10,
-                                bgcolor=ft.Colors.GREY_50,
-                            ),
-                        ], spacing=15),
-                        padding=20,
+            # Training options
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.PLAY_CIRCLE, size=22, color="#3DDC84"),
+                        ft.Container(width=16),
+                        ft.Text("Opciones de Entrenamiento", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=20),
+                    ft.Row([
+                        quick_train_button,
+                        ft.Container(width=16),
+                        advanced_train_button,
+                        ft.Container(expand=True),
+                    ], spacing=0),
+                ], spacing=0),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+            ),
+
+            ft.Container(height=24),
+
+            # Progress and logs
+            ft.Container(
+                content=ft.Column([
+                    ft.Row([
+                        ft.Icon(ft.Icons.TRENDING_UP, size=22, color="#FFB74D"),
+                        ft.Container(width=16),
+                        ft.Text("Progreso del Entrenamiento", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=16),
+                    ft.Container(
+                        content=self.training_progress,
+                        padding=ft.padding.symmetric(horizontal=0, vertical=6),
                     ),
-                    elevation=2,
-                ),
+                    ft.Container(height=20),
+                    ft.Row([
+                        ft.Icon(ft.Icons.DESCRIPTION, size=22, color="#82B1FF"),
+                        ft.Container(width=16),
+                        ft.Text("Logs de Entrenamiento", size=14, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Container(height=12),
+                    ft.Container(
+                        content=self.training_logs,
+                        bgcolor="#0D0D0D",
+                        border=ft.border.all(1, "#2D2D2D"),
+                        border_radius=8,
+                        padding=ft.padding.all(12),
+                        expand=True,
+                    ),
+                ], spacing=0, expand=True),
+                bgcolor="#1A1A1A",
+                border=ft.border.all(1.5, "#2D2D2D"),
+                border_radius=10,
+                padding=ft.padding.all(20),
+                expand=True,
+            ),
 
-            ], horizontal_alignment=ft.CrossAxisAlignment.START, spacing=20),
-        )
+            ft.Container(expand=True),
+        ], spacing=0, expand=True)
 
     def _build_navigation_buttons(self):
         """Build navigation buttons."""
+        # Back button with hover effect
         self.back_button = ft.ElevatedButton(
             "Atrás",
             icon=ft.Icons.ARROW_BACK,
             on_click=self._go_back,
             disabled=self.current_step == 0,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.GREY_700, color=ft.Colors.WHITE),
+            style=ft.ButtonStyle(
+                bgcolor=ft.Colors.with_opacity(0.1, "#888888"),
+                color="#888888",
+                padding=ft.padding.symmetric(horizontal=24, vertical=14),
+                side=ft.BorderSide(1.5, "#3A3A3A"),
+                shape=ft.RoundedRectangleBorder(radius=8),
+            ),
         )
 
+        # Next/Complete button with gradient-like appearance
         next_text = "Completar" if self.current_step == len(self.steps) - 1 else "Siguiente"
         self.next_button = ft.ElevatedButton(
             next_text,
-            icon=ft.Icons.ARROW_FORWARD if next_text != "Completar" else ft.Icons.CHECK,
+            icon=ft.Icons.CHECK_CIRCLE if next_text == "Completar" else ft.Icons.ARROW_FORWARD,
             on_click=self._go_next,
-            style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_400, color=ft.Colors.BLACK),
+            style=ft.ButtonStyle(
+                bgcolor="#3DDC84",
+                color=ft.Colors.BLACK,
+                padding=ft.padding.symmetric(horizontal=28, vertical=14),
+                shape=ft.RoundedRectangleBorder(radius=8),
+            ),
         )
 
     def _show_cancel_dialog(self, e):
