@@ -20,6 +20,7 @@ from .supervised_models import (
 from .unsupervised_models import (
     KMeansModel,
     DBSCANModel,
+    MeanShiftModel,
     GaussianMixtureModel,
     PCAModel,
     TSNEModel,
@@ -54,6 +55,7 @@ __all__ = [
     # Unsupervised
     'KMeansModel',
     'DBSCANModel',
+    'MeanShiftModel',
     'GaussianMixtureModel',
     'PCAModel',
     'TSNEModel',
