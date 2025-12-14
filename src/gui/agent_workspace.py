@@ -56,7 +56,20 @@ class AgentWorkspace:
         self.selected_node: Optional[str] = None
         self.dragging_node: Optional[str] = None
         self.connecting_from: Optional[Tuple[str, str]] = None
+        self.connection_in_progress: Optional[Dict] = None  # Rastrear conexión en progreso
         self.sidebar_collapsed = False
+        
+        # Variables para zoom
+        self.canvas_scale = 1.0
+        self.min_scale = 0.5
+        self.max_scale = 3.0
+        
+        # Variables para pan/movimiento del canvas
+        self.canvas_offset_x = 0.0
+        self.canvas_offset_y = 0.0
+        self.is_panning = False
+        self.pan_start_x = 0.0
+        self.pan_start_y = 0.0
 
         # Catálogo
         self.node_catalog = get_all_nodes_by_category()
@@ -73,10 +86,16 @@ class AgentWorkspace:
             color="#f8fafc",
         )
         self.node_count_text = ft.Text("0 nodes", size=10, color="#e0e7ff")
+        
+        # Contenedor para las líneas de conexión (Stack para posicionamiento absoluto)
+        self.connections_stack = ft.Stack([], expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE)
+        
         # Canvas stack con tamaño mínimo para evitar que se expanda con los nodos
         self.canvas_stack = ft.Stack(
             expand=True, 
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            width=800,
+            height=600
         )
         self.canvas_panel = self._build_canvas_panel()
         self.execution_log: List[str] = []
@@ -394,28 +413,51 @@ class AgentWorkspace:
         print("DEBUG: Cerrando modal")
         try:
             if hasattr(self, 'palette_modal') and self.palette_modal is not None:
-                if self.palette_modal in self.canvas_stack.controls:
-                    self.canvas_stack.controls.remove(self.palette_modal)
+                try:
+                    # Buscar y remover el modal del stack
+                    if self.palette_modal in self.canvas_stack.controls:
+                        self.canvas_stack.controls.remove(self.palette_modal)
+                except (ValueError, AttributeError) as ex:
+                    print(f"DEBUG: Modal ya no está en el stack: {ex}")
+                finally:
+                    self.palette_modal = None
+                    # Intentar actualizar
                     try:
-                        self.canvas_stack.update()
+                        if hasattr(self, 'canvas_stack') and hasattr(self.canvas_stack, 'update'):
+                            self.canvas_stack.update()
                     except:
                         pass
-                self.palette_modal = None
         except Exception as ex:
             print(f"DEBUG: Error al cerrar modal: {ex}")
             self.palette_modal = None
     
     def _build_canvas_panel(self) -> ft.Container:
         """Panel central para el lienzo con gradiente y sombreado."""
+        # Stack con conexiones atrás y nodos adelante
+        canvas_with_connections = ft.Stack([
+            self.connections_stack,  # Conexiones atrás
+            self.canvas_stack        # Nodos adelante
+        ], expand=True, clip_behavior=ft.ClipBehavior.HARD_EDGE)
+        
+        # Envolver el canvas con GestureDetector para zoom y pan
+        canvas_with_gestures = ft.GestureDetector(
+            content=canvas_with_connections,
+            on_scroll=self._on_canvas_scroll,
+            on_pan_start=self._on_canvas_pan_start,
+            on_pan_update=self._on_canvas_pan_update,
+            on_pan_end=self._on_canvas_pan_end,
+        )
+        
         canvas_frame = ft.Container(
             expand=True,
             bgcolor=CARD_BG,
             border_radius=20,
             border=ft.border.all(1, "#1b2432"),
             padding=16,
-            content=self.canvas_stack,
+            content=canvas_with_gestures,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
         )
+        
         return ft.Container(
             expand=True,
             padding=8,
@@ -496,6 +538,9 @@ class AgentWorkspace:
                     node.ui_control.update()
                 except:
                     pass
+            
+            # Redibujar conexiones cuando se mueve un nodo
+            self._draw_connections()
 
         def _on_node_drag_end(e):
             self.dragging_node = None
@@ -574,6 +619,8 @@ class AgentWorkspace:
             content=draggable,
             left=node.position["x"],
             top=node.position["y"],
+            width=NODE_WIDTH,
+            height=NODE_HEIGHT,
         )
         
         # Guardar referencia del control
@@ -584,47 +631,32 @@ class AgentWorkspace:
     def _redraw_canvas(self):
         """Redibujar todo el canvas."""
         try:
-            # Mantener solo los nodos actuales, actualizando los existentes
-            current_node_ids = set(self.nodes.keys())
-            canvas_node_ids = set()
-            
-            # Identificar qué nodos ya están en el canvas
-            for i, control in enumerate(self.canvas_stack.controls):
-                # Buscar si es un nodo (tiene data atributo con node_id)
-                if hasattr(control, 'data'):
-                    canvas_node_ids.add(control.data)
-            
-            # Limpiar nodos que fueron eliminados
+            # Limpiar completamente el canvas de nodos (mantener solo conexiones)
+            # Identificar qué controles son nodos (tienen atributo data)
             to_remove = []
             for i, control in enumerate(self.canvas_stack.controls):
-                if hasattr(control, 'data') and control.data not in current_node_ids:
+                if hasattr(control, 'data'):
                     to_remove.append(i)
             
-            # Remover en orden inverso para no cambiar índices
+            # Remover en orden inverso
             for i in sorted(to_remove, reverse=True):
                 self.canvas_stack.controls.pop(i)
             
-            # Agregar nodos nuevos o actualizar existentes
+            # Agregar todos los nodos actuales al canvas
             for node_id, node in self.nodes.items():
-                if node_id not in canvas_node_ids:
-                    node_ui = self._draw_node_ui(node)
-                    node_ui.data = node_id
-                    self.canvas_stack.controls.append(node_ui)
-                else:
-                    # Actualizar posición del nodo existente
-                    for control in self.canvas_stack.controls:
-                        if hasattr(control, 'data') and control.data == node_id:
-                            control.left = node.position["x"]
-                            control.top = node.position["y"]
-                            break
+                node_ui = self._draw_node_ui(node)
+                node_ui.data = node_id
+                self.canvas_stack.controls.append(node_ui)
             
-            # Solo actualizar si se agregaron/removieron nodos
-            if to_remove or len(current_node_ids) > len(canvas_node_ids):
-                if hasattr(self.canvas_stack, 'update') and self.page:
-                    try:
-                        self.canvas_stack.update()
-                    except:
-                        pass
+            # Actualizar el canvas
+            if hasattr(self.canvas_stack, 'update') and self.page:
+                try:
+                    self.canvas_stack.update()
+                except:
+                    pass
+            
+            # Redibujar conexiones
+            self._draw_connections()
         except Exception as e:
             print(f"DEBUG: Error en _redraw_canvas: {e}")
 
@@ -675,6 +707,43 @@ class AgentWorkspace:
         self.left_panel_container.update()
         self.canvas_panel.update()
     
+    def _on_canvas_scroll(self, e: ft.ScrollEvent):
+        """Manejar scroll del canvas para zoom."""
+        try:
+            # Por ahora desactivado - simplificar
+            pass
+        except Exception as ex:
+            print(f"DEBUG: Error en scroll: {ex}")
+    
+    def _on_canvas_pan_start(self, e: ft.DragStartEvent):
+        """Iniciar pan del canvas."""
+        try:
+            # Por ahora desactivado - simplificar
+            pass
+        except Exception as ex:
+            print(f"DEBUG: Error al iniciar pan: {ex}")
+    
+    def _on_canvas_pan_update(self, e: ft.DragUpdateEvent):
+        """Actualizar pan del canvas."""
+        try:
+            # Por ahora desactivado - simplificar
+            pass
+        except Exception as ex:
+            print(f"DEBUG: Error al actualizar pan: {ex}")
+    
+    def _on_canvas_pan_end(self, e: ft.DragEndEvent):
+        """Terminar pan del canvas."""
+        pass
+    
+    def _apply_canvas_transform(self):
+        """Aplicar transformación de zoom y pan a todos los nodos."""
+        try:
+            # Por ahora desactivado - simplificar
+            pass
+        except Exception as ex:
+            print(f"DEBUG: Error al aplicar transformación: {ex}")
+    
+    
     def _update_node_setting(self, node_id: str, setting_name: str, value: Any):
         """Actualizar una configuración de nodo."""
         if node_id in self.nodes:
@@ -683,18 +752,156 @@ class AgentWorkspace:
     def _start_connection(self, node_id: str, port_name: str, is_input: bool):
         """Empezar a crear una conexión."""
         if self.connecting_from is None:
+            # Iniciar nueva conexión
             self.connecting_from = (node_id, port_name)
+            self.connection_in_progress = {
+                "source_node": node_id,
+                "source_port": port_name,
+                "is_input": is_input,
+                "start_x": 0,
+                "start_y": 0
+            }
             self._log(f"Connection start: {node_id}.{port_name}")
+            self._draw_connections()
         else:
+            # Completar conexión
             source_node, source_port = self.connecting_from
             target_node, target_port = node_id, port_name
             
+            # No permitir conexión a sí mismo
+            if source_node == target_node:
+                self._log("Cannot connect node to itself")
+                self.connecting_from = None
+                self.connection_in_progress = None
+                self._draw_connections()
+                return
+            
             conn_id = str(uuid.uuid4())
             self.connections[conn_id] = Connection(conn_id, source_node, source_port, target_node, target_port)
-            self._log(f"Connection created: {source_node}.{source_port} -> {target_node}.{target_port}")
+            self._log(f"Connection created: {source_node}.{source_port} → {target_node}.{target_port}")
             
             self.connecting_from = None
-            self._redraw_canvas()
+            self.connection_in_progress = None
+            self._draw_connections()
+    
+    def _draw_connections(self):
+        """Dibujar todas las conexiones en el canvas."""
+        try:
+            if not hasattr(self, 'connections_stack') or self.connections_stack is None:
+                return
+            
+            # Limpiar conexiones anteriores
+            try:
+                self.connections_stack.controls.clear()
+            except:
+                pass
+            
+            # Dibujar conexiones completadas
+            for conn_id, conn in self.connections.items():
+                try:
+                    self._draw_connection_line(
+                        conn.source_node, 
+                        conn.source_port,
+                        conn.target_node,
+                        conn.target_port,
+                        color="#00BCD4"
+                    )
+                except Exception as line_error:
+                    print(f"DEBUG: Error dibujando línea individual: {line_error}")
+                    continue
+            
+            # Actualizar el stack
+            try:
+                if hasattr(self.connections_stack, 'update'):
+                    self.connections_stack.update()
+            except Exception as update_error:
+                print(f"DEBUG: Error actualizando stack: {update_error}")
+                
+        except Exception as e:
+            print(f"DEBUG: Error en _draw_connections: {e}")
+    
+    def _draw_connection_line(self, source_node_id: str, source_port: str, 
+                             target_node_id: str, target_port: str, color: str):
+        """Dibujar una línea de conexión curva entre dos puertos."""
+        try:
+            import math
+            
+            # Obtener posiciones de los nodos
+            if source_node_id not in self.nodes or target_node_id not in self.nodes:
+                return
+            
+            source_node = self.nodes[source_node_id]
+            target_node = self.nodes[target_node_id]
+            
+            # Calcular posiciones de los puertos (centro del nodo)
+            source_x = source_node.position["x"] + NODE_WIDTH / 2
+            source_y = source_node.position["y"] + NODE_HEIGHT / 2
+            
+            target_x = target_node.position["x"] + NODE_WIDTH / 2
+            target_y = target_node.position["y"] + NODE_HEIGHT / 2
+            
+            # Calcular distancia
+            dx = target_x - source_x
+            dy = target_y - source_y
+            distance = math.sqrt(dx**2 + dy**2)
+            
+            if distance < 1:
+                return
+            
+            # Crear una curva suave usando múltiples segmentos
+            # Usaremos una curva Bezier aproximada con 5-10 segmentos
+            segments = max(5, int(distance / 50))  # Más segmentos para distancias largas
+            
+            # Puntos de control para la curva Bezier
+            ctrl1_x = source_x + dx / 3
+            ctrl1_y = source_y + dy / 4
+            ctrl2_x = source_x + 2 * dx / 3
+            ctrl2_y = source_y + 3 * dy / 4
+            
+            # Generar puntos en la curva Bezier cúbica
+            for i in range(segments):
+                t_start = i / segments
+                t_end = (i + 1) / segments
+                
+                # Fórmula de Bezier cúbica: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
+                def bezier_point(t):
+                    mt = 1 - t
+                    x = (mt**3 * source_x + 
+                         3 * mt**2 * t * ctrl1_x + 
+                         3 * mt * t**2 * ctrl2_x + 
+                         t**3 * target_x)
+                    y = (mt**3 * source_y + 
+                         3 * mt**2 * t * ctrl1_y + 
+                         3 * mt * t**2 * ctrl2_y + 
+                         t**3 * target_y)
+                    return x, y
+                
+                # Puntos de inicio y fin del segmento
+                x1, y1 = bezier_point(t_start)
+                x2, y2 = bezier_point(t_end)
+                
+                # Calcular ángulo y longitud del segmento
+                seg_dx = x2 - x1
+                seg_dy = y2 - y1
+                seg_length = math.sqrt(seg_dx**2 + seg_dy**2)
+                seg_angle = math.atan2(seg_dy, seg_dx)
+                
+                if seg_length > 0.1:
+                    # Crear línea para este segmento
+                    line = ft.Container(
+                        width=int(seg_length),
+                        height=3,
+                        bgcolor=color,
+                        border_radius=1,
+                        left=int(x1),
+                        top=int(y1 - 1.5),
+                        opacity=0.85,
+                        rotate=ft.Rotate(angle=seg_angle),
+                    )
+                    self.connections_stack.controls.append(line)
+            
+        except Exception as e:
+            print(f"DEBUG: Error dibujando línea curva: {e}")
     
     def _execute_workflow(self, e):
         """Ejecutar el workflow."""
