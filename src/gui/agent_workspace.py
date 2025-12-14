@@ -993,6 +993,95 @@ class AgentWorkspace:
         )
         controls.append(cols_field)
         
+        # WHERE Conditions
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("WHERE Conditions", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        where_conditions = node.settings.get("where_conditions", [])
+        if not where_conditions:
+            where_conditions = [{"field": "", "operator": "=", "value": ""}]
+            node.settings["where_conditions"] = where_conditions
+        
+        for idx, cond in enumerate(where_conditions):
+            # Row para cada condición WHERE: Field | Operator | Value
+            where_field = ft.TextField(
+                label="Field",
+                value=cond.get("field", ""),
+                on_blur=lambda e, i=idx: self._update_where_condition(node.node_id, i, "field", e.control.value),
+                bgcolor="#05070a",
+                border_color="#1f2937",
+                color="#f8fafc",
+                filled=True,
+                width=100
+            )
+            
+            where_operator = ft.Dropdown(
+                label="Operator",
+                options=[ft.dropdown.Option(op) for op in ["=", "!=", "<", ">", "<=", ">=", "LIKE", "IN", "NOT IN", "IS NULL", "IS NOT NULL"]],
+                value=cond.get("operator", "="),
+                on_change=lambda e, i=idx: self._update_where_condition(node.node_id, i, "operator", e.control.value),
+                bgcolor="#05070a",
+                border_color="#1f2937",
+                color="#f8fafc",
+                filled=True,
+                width=90
+            )
+            
+            where_value = ft.TextField(
+                label="Value",
+                value=cond.get("value", ""),
+                on_blur=lambda e, i=idx: self._update_where_condition(node.node_id, i, "value", e.control.value),
+                bgcolor="#05070a",
+                border_color="#1f2937",
+                color="#f8fafc",
+                filled=True,
+                width=100
+            )
+            
+            delete_where_btn = ft.IconButton(
+                ft.Icons.CLOSE,
+                on_click=lambda e, i=idx: self._delete_where_condition(node.node_id, i),
+                icon_color="#ef4444"
+            )
+            
+            controls.append(ft.Row([where_field, where_operator, where_value, delete_where_btn], spacing=6))
+        
+        # Add WHERE Condition Button
+        add_where_btn = ft.ElevatedButton(
+            "➕ Add WHERE",
+            on_click=lambda e: self._add_where_condition(node.node_id),
+            style=ft.ButtonStyle(
+                bgcolor="#40C4FF",
+                color="#010409"
+            ),
+            width=150
+        )
+        controls.append(add_where_btn)
+        
+        # Combine WHERE Operator
+        controls.append(ft.Text("Combine WHERE", size=10, color="#cbd5f5"))
+        combine_where = node.settings.get("combine_where", "AND")
+        
+        and_where_btn = ft.ElevatedButton(
+            "● AND" if combine_where == "AND" else "○ AND",
+            on_click=lambda e: self._update_node_setting(node.node_id, "combine_where", "AND"),
+            width=90,
+            style=ft.ButtonStyle(
+                bgcolor="#40C4FF" if combine_where == "AND" else "#1f2937",
+                color="#010409" if combine_where == "AND" else "#cbd5f5"
+            )
+        )
+        or_where_btn = ft.ElevatedButton(
+            "● OR" if combine_where == "OR" else "○ OR",
+            on_click=lambda e: self._update_node_setting(node.node_id, "combine_where", "OR"),
+            width=90,
+            style=ft.ButtonStyle(
+                bgcolor="#40C4FF" if combine_where == "OR" else "#1f2937",
+                color="#010409" if combine_where == "OR" else "#cbd5f5"
+            )
+        )
+        controls.append(ft.Row([and_where_btn, or_where_btn], spacing=8))
+        
         # Order By
         controls.append(ft.Text("Order By", size=10, color="#cbd5f5"))
         order_field = ft.TextField(
@@ -1048,7 +1137,36 @@ class AgentWorkspace:
         controls.append(ft.Divider(thickness=1, color="#1f2937"))
         controls.append(ft.Text("Query Preview", size=11, weight="bold", color=ACCENT_COLOR))
         
-        query_preview = node.settings.get("query_preview", "SELECT * FROM {{table}} LIMIT {{limit}}")
+        # Construir preview con WHERE incluido
+        operation = node.settings.get("operation", "SELECT")
+        table = node.settings.get("table", "{{table}}")
+        columns = node.settings.get("columns", "*")
+        where_conditions = node.settings.get("where_conditions", [])
+        combine_where = node.settings.get("combine_where", "AND")
+        order_by = node.settings.get("order_by", "")
+        limit = node.settings.get("limit", "10")
+        
+        query_preview = f"{operation} {columns} FROM {table}"
+        
+        # Agregar WHERE si hay condiciones
+        if where_conditions and any(c.get("field") for c in where_conditions):
+            where_clauses = []
+            for cond in where_conditions:
+                field = cond.get("field", "")
+                op = cond.get("operator", "=")
+                val = cond.get("value", "")
+                if field:
+                    where_clauses.append(f"{field} {op} {val}")
+            if where_clauses:
+                query_preview += f" WHERE {f' {combine_where} '.join(where_clauses)}"
+        
+        if order_by and operation == "SELECT":
+            query_preview += f" ORDER BY {order_by}"
+        if limit and operation == "SELECT":
+            query_preview += f" LIMIT {limit}"
+        
+        node.settings["query_preview"] = query_preview
+        
         preview_area = ft.TextField(
             value=query_preview,
             multiline=True,
@@ -2466,6 +2584,42 @@ class AgentWorkspace:
         except Exception as ex:
             self._log(f"❌ Dashboard test error: {str(ex)}")
             node.settings["preview_data"] = f"Error: {str(ex)}"
+            self._update_inspector()
+    
+    def _update_where_condition(self, node_id: str, idx: int, field: str, value: str):
+        """Actualizar una condición WHERE específica."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        where_conditions = node.settings.get("where_conditions", [])
+        
+        if idx < len(where_conditions):
+            where_conditions[idx][field] = value
+            self._update_inspector()
+    
+    def _add_where_condition(self, node_id: str):
+        """Agregar una nueva condición WHERE."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        where_conditions = node.settings.get("where_conditions", [])
+        where_conditions.append({"field": "", "operator": "=", "value": ""})
+        node.settings["where_conditions"] = where_conditions
+        self._update_inspector()
+    
+    def _delete_where_condition(self, node_id: str, idx: int):
+        """Eliminar una condición WHERE."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        where_conditions = node.settings.get("where_conditions", [])
+        
+        if idx < len(where_conditions):
+            where_conditions.pop(idx)
+            node.settings["where_conditions"] = where_conditions
             self._update_inspector()
     
     def _log(self, message: str):

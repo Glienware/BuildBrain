@@ -306,7 +306,14 @@ class DatabaseNode(NodeConfig):
                 "operation": "SELECT",
                 "table": "",
                 "columns": "id,name",
-                "filters": {},
+                "where_conditions": [
+                    {
+                        "field": "",
+                        "operator": "=",
+                        "value": ""
+                    }
+                ],
+                "combine_where": "AND",
                 "order_by": "id ASC",
                 "limit": "10",
                 "block_raw_sql": True,
