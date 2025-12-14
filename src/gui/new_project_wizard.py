@@ -8,6 +8,7 @@ import flet as ft
 import os
 import json
 import time
+import sys
 import threading
 from datetime import datetime
 from typing import Dict, Any
@@ -1566,7 +1567,13 @@ class NewProjectWizard:
             self.training_progress.value = 0.2
             self._add_log(f"📁 Creando estructura de carpetas para '{project_name}'...")
             
-            project_dir = os.path.join("projects", project_name)
+            # Use persistent directory for compiled executables
+            if getattr(sys, 'frozen', False):
+                app_data = os.getenv('LOCALAPPDATA')
+                project_dir = os.path.join(app_data, 'BuildBrain', 'projects', project_name)
+            else:
+                project_dir = os.path.join("projects", project_name)
+            
             os.makedirs(project_dir, exist_ok=True)
             os.makedirs(os.path.join(project_dir, "models"), exist_ok=True)
             os.makedirs(os.path.join(project_dir, "data"), exist_ok=True)
@@ -1875,7 +1882,13 @@ class NewProjectWizard:
     def _save_project(self):
         """Save project to .buildb file."""
         # Create projects directory if it doesn't exist
-        projects_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "projects")
+        # Use persistent directory for compiled executables
+        import sys
+        if getattr(sys, 'frozen', False):
+            app_data = os.getenv('LOCALAPPDATA')
+            projects_dir = os.path.join(app_data, 'BuildBrain', 'projects')
+        else:
+            projects_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "projects")
         os.makedirs(projects_dir, exist_ok=True)
 
         project_name = self.project_data['project_name']

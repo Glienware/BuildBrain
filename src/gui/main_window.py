@@ -829,6 +829,12 @@ class AndroidStyleMainWindow:
         # Refresh available models
         self._refresh_model_list()
         
+        def on_refresh_models(e):
+            """Refresh the list of available models."""
+            self._refresh_model_list()
+            self.page.update()
+            self._show_snackbar("✅ Lista de modelos actualizada", self.SUCCESS_COLOR)
+        
         def on_select_test_image(e):
             if not self.test_model_loaded:
                 self._show_snackbar("⚠️ Carga un modelo primero", self.ERROR_COLOR)
@@ -867,7 +873,15 @@ class AndroidStyleMainWindow:
                     content=ft.Column([
                         ft.Text("1️⃣ Cargar Modelo", size=13, weight=ft.FontWeight.BOLD),
                         ft.Container(height=8),
-                        self.test_model_dropdown,
+                        ft.Row([
+                            self.test_model_dropdown,
+                            ft.IconButton(
+                                ft.Icons.REFRESH,
+                                tooltip="Refrescar modelos",
+                                on_click=on_refresh_models,
+                                icon_color=self.SECONDARY_COLOR
+                            )
+                        ], spacing=5),
                         ft.Container(height=8),
                         self.test_model_label,
                     ]),
@@ -1417,12 +1431,24 @@ class AndroidStyleMainWindow:
     def _refresh_model_list(self):
         """Refresh the list of available models."""
         try:
+            # Ensure project_path exists
+            if not self.project_path or not os.path.isdir(self.project_path):
+                self.test_model_dropdown.options = [ft.dropdown.Option("No hay modelos disponibles")]
+                return
+            
             model_path = os.path.join(self.project_path, "modelo.plt")
             
             # Add current project model if it exists
             options = []
             if os.path.exists(model_path):
                 options.append(ft.dropdown.Option("📦 Modelo del Proyecto"))
+            
+            # Also check in models subfolder
+            models_dir = os.path.join(self.project_path, "models")
+            if os.path.exists(models_dir):
+                for model_file in os.listdir(models_dir):
+                    if model_file.endswith(('.plt', '.pkl', '.pth')):
+                        options.append(ft.dropdown.Option(f"📦 {model_file}"))
             
             if options:
                 self.test_model_dropdown.options = options

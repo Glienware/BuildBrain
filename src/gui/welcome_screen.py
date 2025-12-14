@@ -8,6 +8,7 @@ import flet as ft
 import os
 import json
 import shutil
+import sys
 from datetime import datetime
 from .new_project_wizard import NewProjectWizard
 
@@ -22,7 +23,13 @@ class WelcomeScreen:
         self.on_new_project = on_new_project
         self.on_open_project = on_open_project
         self.on_project_created = on_project_created
-        self.projects_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "projects")
+        # Use persistent directory for compiled executables
+        if getattr(sys, 'frozen', False):
+            app_data = os.getenv('LOCALAPPDATA')
+            self.projects_dir = os.path.join(app_data, 'BuildBrain', 'projects')
+        else:
+            self.projects_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "projects")
+        os.makedirs(self.projects_dir, exist_ok=True)
         self.recent_projects = self.load_recent_projects()
 
     def load_recent_projects(self):

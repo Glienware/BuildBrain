@@ -1,12 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_dynamic_libs
+from PyInstaller.utils.hooks import collect_all
+
+datas = [('locales', 'locales'), ('config', 'config')]
+binaries = [('C:\\Users\\INICIO\\Downloads\\BuildBrain\\.venv\\Lib\\site-packages\\xgboost\\lib\\xgboost.dll', '.')]
+hiddenimports = ['xgboost']
+binaries += collect_dynamic_libs('xgboost')
+tmp_ret = collect_all('xgboost')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -29,11 +38,11 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='C:\\Users\\INICIO\\AppData\\Local\\Temp\\c03e0f57-19a2-4726-a1ba-7d4854d43dcc',
+    version='version.txt',
 )

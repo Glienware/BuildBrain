@@ -5,11 +5,30 @@ AI/ML Model Trainer Desktop App
 Main entry point for the application.
 """
 
+__version__ = "1.0.0"
+
 import flet as ft
 import os
 import sys
 from src.gui.welcome_screen import WelcomeScreen
 from src.gui.main_window import AndroidStyleMainWindow
+
+
+def get_projects_directory():
+    """
+    Get the persistent projects directory.
+    When running as .exe, use AppData\\Local\\BuildBrain\\projects
+    When running as script, use ./projects
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as compiled exe
+        app_data = os.getenv('LOCALAPPDATA')
+        if app_data:
+            projects_dir = os.path.join(app_data, 'BuildBrain', 'projects')
+            os.makedirs(projects_dir, exist_ok=True)
+            return projects_dir
+    # Running as script
+    return os.path.join(os.path.dirname(__file__), "projects")
 
 
 def set_window_icon_windows(icon_path):
@@ -39,8 +58,7 @@ class AppController:
         self.current_view = None
         self.main_window = None
         self.welcome_screen = None
-        self.projects_dir = os.path.join(os.path.dirname(__file__), "projects")
-        self.projects_dir = os.path.join(os.path.dirname(__file__), "projects")
+        self.projects_dir = get_projects_directory()
 
     def show_welcome_screen(self, e=None):
         """Show the welcome screen."""

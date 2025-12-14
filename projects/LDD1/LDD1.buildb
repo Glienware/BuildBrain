@@ -1,0 +1,51 @@
+{
+  "project_name": "LDD1",
+  "task_type": "classification",
+  "model_type": "logistic_regression",
+  "training_settings": {
+    "epochs": 100,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "optimizer": "adam",
+    "advanced_enabled": false
+  },
+  "classes": [
+    "Hombre",
+    "Mujer"
+  ],
+  "dataset_path": null,
+  "dataset_type": null,
+  "created_at": "2025-12-09T00:38:35.543801",
+  "last_modified": "2025-12-09T00:40:21.592881",
+  "dataset": {
+    "classes": {
+      "Hombre": [
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\27d17b38cc3d3e61f4a08b6af0520c57.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\825ff556fb61d8cb5764acb3b9146347.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\emotions-people-concept-headshot.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\happy_man.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\hombre-1.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\images (4).jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\images (ddd4).jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\joven-hombre-guapo-camiseta-info.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\mh-207-marquee-loop-juanbetancou.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\premium_photo-1682096259050-361e2989706d.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Hombre\\tratamiento-suavizar-arrugas-en.jpg"
+      ],
+      "Mujer": [
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\02_WhatWeDo_LeadershipAndPolitic.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\be20ccc1456eb061abbf5a77d84fb8b7.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\chica-hispana-sonriendo-en-c\u00e1mar.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\d5f83c809b2f6ceb70a0310883f1fe87.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\derechos-de-las-mujeres.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\images (4).jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\images.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\premium_photo-1664537980500-30bb5ec506e1.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\young-latin-shopkeeper-girl-arms.jpg",
+        "c:\\Users\\INICIO\\Downloads\\BuildBrain\\projects\\LDD1\\dataset\\Mujer\\_100341370_gettyimages-154955363.jpg"
+      ]
+    },
+    "total_images": 21,
+    "num_classes": 2
+  }
+}
