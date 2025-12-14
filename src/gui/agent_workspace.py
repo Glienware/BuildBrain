@@ -312,11 +312,18 @@ class AgentWorkspace:
 
         # Crear una vista modal temporal
         self.palette_modal = modal_stack
-        self.canvas_stack.controls.append(modal_stack)
-        try:
-            self.canvas_stack.update()
-        except:
-            pass
+        # Agregar al overlay de la página en lugar del canvas
+        if self.page:
+            # Agregar como overlay (DIALOGO VERDADERO)
+            self.page.overlay.append(modal_stack)
+            self.page.update()
+        else:
+            # Fallback si no hay página
+            self.canvas_stack.controls.append(modal_stack)
+            try:
+                self.canvas_stack.update()
+            except:
+                pass
         print("DEBUG: Modal abierto")
 
     def _build_palette_controls(self, query: str) -> List[ft.Control]:
@@ -405,7 +412,7 @@ class AgentWorkspace:
     def _select_palette_node(self, node_config: NodeConfig):
         """Seleccionar un nodo de la paleta y agregarlo al canvas."""
         print(f"DEBUG: _select_palette_node llamado para {node_config.display_name}")
-        self._add_node_to_canvas(node_config)
+        self._create_node_instance(node_config, None, None)
         self._close_palette_dialog()
 
     def _close_palette_dialog(self, e=None):
@@ -414,19 +421,14 @@ class AgentWorkspace:
         try:
             if hasattr(self, 'palette_modal') and self.palette_modal is not None:
                 try:
-                    # Buscar y remover el modal del stack
-                    if self.palette_modal in self.canvas_stack.controls:
-                        self.canvas_stack.controls.remove(self.palette_modal)
+                    # Remover del overlay en lugar del canvas stack
+                    if self.page and self.palette_modal in self.page.overlay:
+                        self.page.overlay.remove(self.palette_modal)
+                        self.page.update()
                 except (ValueError, AttributeError) as ex:
-                    print(f"DEBUG: Modal ya no está en el stack: {ex}")
+                    print(f"DEBUG: Error removiendo modal del overlay: {ex}")
                 finally:
                     self.palette_modal = None
-                    # Intentar actualizar
-                    try:
-                        if hasattr(self, 'canvas_stack') and hasattr(self.canvas_stack, 'update'):
-                            self.canvas_stack.update()
-                    except:
-                        pass
         except Exception as ex:
             print(f"DEBUG: Error al cerrar modal: {ex}")
             self.palette_modal = None
@@ -494,10 +496,6 @@ class AgentWorkspace:
             expand=True
         )
         self.right_panel_container.content = tabs
-        
-    def _add_node_to_canvas(self, node_config: NodeConfig, x: Optional[float] = None, y: Optional[float] = None):
-        """Agregar un nodo al canvas con la nueva lógica de paleta."""
-        self._create_node_instance(node_config, x, y)
 
     def _create_node_instance(self, node_config: NodeConfig, x: Optional[float], y: Optional[float]):
         index = self.node_counter
@@ -512,9 +510,36 @@ class AgentWorkspace:
         self.nodes[node_id] = node
         self._refresh_node_count()
         self.selected_node = node_id
+        
+        # SOLO agregar el nodo nuevo sin redibujarlo todo
+        self._add_node_to_canvas(node)
         self._update_inspector()
         self._refresh_left_panel()
-        self._redraw_canvas()
+    
+    def _add_node_to_canvas(self, node: NodeInstance):
+        """Agregar un nodo al canvas sin redibujarlo todo."""
+        try:
+            print(f"DEBUG: _add_node_to_canvas llamado para {node.node_id}")
+            print(f"DEBUG: Canvas tiene {len(self.canvas_stack.controls)} controls ANTES")
+            
+            node_ui = self._draw_node_ui(node)
+            node_ui.data = node.node_id
+            node_ui.left = node.position["x"] + self.canvas_offset_x
+            node_ui.top = node.position["y"] + self.canvas_offset_y
+            node.ui_control = node_ui
+            self.canvas_stack.controls.append(node_ui)
+            
+            print(f"DEBUG: Canvas tiene {len(self.canvas_stack.controls)} controls DESPUÉS de append")
+            
+            # Actualizar canvas
+            if hasattr(self.canvas_stack, 'update') and self.page:
+                try:
+                    self.canvas_stack.update()
+                    print(f"DEBUG: Canvas actualizado correctamente")
+                except Exception as update_err:
+                    print(f"DEBUG: Error en update: {update_err}")
+        except Exception as e:
+            print(f"DEBUG: Error al agregar nodo: {e}")
     
     def _draw_node_ui(self, node: NodeInstance) -> ft.Control:
         """Crear el UI para un nodo."""
@@ -629,40 +654,23 @@ class AgentWorkspace:
         return container
     
     def _redraw_canvas(self):
-        """Redibujar todo el canvas."""
+        """Actualizar solo los bordes de nodos seleccionados."""
         try:
-            # Obtener los nodos que ya están en el canvas
-            canvas_node_ids = set()
             for control in self.canvas_stack.controls:
-                if hasattr(control, 'data'):
-                    canvas_node_ids.add(control.data)
+                if hasattr(control, 'data') and isinstance(control.data, str) and control.data.startswith('node_'):
+                    # Actualizar color de borde según si está seleccionado
+                    if control.data == self.selected_node:
+                        # Cambiar borde a cyan
+                        if hasattr(control, 'content') and hasattr(control.content, 'content'):
+                            if hasattr(control.content.content, 'border'):
+                                control.content.content.border = ft.border.all(2, "#00BCD4")
+                    else:
+                        # Borde normal
+                        if hasattr(control, 'content') and hasattr(control.content, 'content'):
+                            if hasattr(control.content.content, 'border'):
+                                control.content.content.border = ft.border.all(2, "#1f2937")
             
-            # Actualizar nodos existentes
-            for control in self.canvas_stack.controls:
-                if hasattr(control, 'data') and control.data in self.nodes:
-                    node = self.nodes[control.data]
-                    control.left = node.position["x"] + self.canvas_offset_x
-                    control.top = node.position["y"] + self.canvas_offset_y
-            
-            # Agregar nodos nuevos
-            for node_id, node in self.nodes.items():
-                if node_id not in canvas_node_ids:
-                    node_ui = self._draw_node_ui(node)
-                    node_ui.data = node_id
-                    node_ui.left = node.position["x"] + self.canvas_offset_x
-                    node_ui.top = node.position["y"] + self.canvas_offset_y
-                    node.ui_control = node_ui
-                    self.canvas_stack.controls.append(node_ui)
-            
-            # Actualizar el canvas
-            if hasattr(self.canvas_stack, 'update') and self.page:
-                try:
-                    self.canvas_stack.update()
-                except:
-                    pass
-            
-            # Redibujar conexiones
-            self._draw_connections()
+            self.canvas_stack.update()
         except Exception as e:
             print(f"DEBUG: Error en _redraw_canvas: {e}")
 
