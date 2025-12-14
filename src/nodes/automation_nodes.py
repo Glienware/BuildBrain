@@ -107,6 +107,23 @@ class IfElseNode(NodeConfig):
             display_name="If / Else",
             description="Conditional branch",
             category="LOGIC",
+            settings={
+                "mode": "simple",  # simple or advanced
+                "input_source": "current_item",  # current_item, full_array, context
+                "conditions": [
+                    {
+                        "field": "value",
+                        "operator": "==",
+                        "value": ""
+                    }
+                ],
+                "combine_operator": "AND",  # AND or OR
+                "expression": "{{ value == true }}",  # para advanced mode
+                "true_label": "TRUE",
+                "false_label": "FALSE",
+                "preview_result": "",
+                "last_test_result": ""
+            },
             input_ports={
                 "condition": Port("condition", DataType.BOOLEAN, "Condition to evaluate", required=True),
                 "input": Port("input", DataType.ANY, "Data to pass through")
@@ -116,6 +133,8 @@ class IfElseNode(NodeConfig):
                 "false": Port("false", DataType.ANY, "Output if false")
             }
         )
+        self.operators = ["==", "!=", ">", ">=", "<", "<=", "contains", "exists", "in"]
+        self.input_sources = ["current_item", "full_array", "context"]
 
 
 class LoopNode(NodeConfig):

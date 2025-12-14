@@ -705,6 +705,9 @@ class AgentWorkspace:
         # ESPECIAL: Interfaz para Database Query
         elif node.config.node_type == "database":
             controls = self._build_database_inspector(node, controls)
+        # ESPECIAL: Interfaz para If/Else
+        elif node.config.node_type == "if_else":
+            controls = self._build_if_else_inspector(node, controls)
         else:
             # Interfaz genérica para otros nodos
             controls = self._build_generic_node_inspector(node, controls)
@@ -1079,6 +1082,261 @@ class AgentWorkspace:
                 multiline=True,
                 read_only=True,
                 min_lines=3,
+                bgcolor="#05070a",
+                border_color="#1f2937",
+                color="#cbd5f5",
+                filled=True
+            )
+            controls.append(result_area)
+        
+        return controls
+    
+    def _build_if_else_inspector(self, node, controls):
+        """Construir interfaz especializada para If/Else."""
+        
+        # === CONDITION MODE ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Condition Mode", size=11, weight="bold", color=ACCENT_COLOR))
+        
+        mode = node.settings.get("mode", "simple")
+        
+        def on_mode_change(new_mode):
+            node.settings["mode"] = new_mode
+            self._update_inspector()
+        
+        simple_btn = ft.ElevatedButton(
+            "● Simple" if mode == "simple" else "○ Simple",
+            on_click=lambda e: on_mode_change("simple"),
+            width=110,
+            style=ft.ButtonStyle(
+                bgcolor="#40C4FF" if mode == "simple" else "#1f2937",
+                color="#010409" if mode == "simple" else "#cbd5f5"
+            )
+        )
+        advanced_btn = ft.ElevatedButton(
+            "● Advanced" if mode == "advanced" else "○ Advanced",
+            on_click=lambda e: on_mode_change("advanced"),
+            width=110,
+            style=ft.ButtonStyle(
+                bgcolor="#40C4FF" if mode == "advanced" else "#1f2937",
+                color="#010409" if mode == "advanced" else "#cbd5f5"
+            )
+        )
+        controls.append(ft.Row([simple_btn, advanced_btn], spacing=8))
+        
+        # === SIMPLE MODE ===
+        if mode == "simple":
+            controls.append(ft.Divider(thickness=1, color="#1f2937"))
+            controls.append(ft.Text("Input Source", size=10, weight="bold", color=ACCENT_COLOR))
+            
+            input_source = node.settings.get("input_source", "current_item")
+            source_dropdown = ft.Dropdown(
+                label="Select Source",
+                options=[
+                    ft.dropdown.Option("current_item", "Current Item"),
+                    ft.dropdown.Option("full_array", "Full Array"),
+                    ft.dropdown.Option("context", "Context")
+                ],
+                value=input_source,
+                on_change=lambda e: self._update_node_setting(node.node_id, "input_source", e.control.value),
+                bgcolor="#05070a",
+                border_color="#1f2937",
+                color="#f8fafc",
+                filled=True,
+                width=250
+            )
+            controls.append(source_dropdown)
+            
+            # Conditions
+            controls.append(ft.Divider(thickness=1, color="#1f2937"))
+            controls.append(ft.Text("Conditions", size=10, weight="bold", color=ACCENT_COLOR))
+            
+            conditions = node.settings.get("conditions", [])
+            if not conditions:
+                conditions = [{"field": "", "operator": "==", "value": ""}]
+                node.settings["conditions"] = conditions
+            
+            for idx, cond in enumerate(conditions):
+                # Row para cada condición: Field | Operator | Value
+                field_field = ft.TextField(
+                    label="Field",
+                    value=cond.get("field", ""),
+                    on_blur=lambda e, i=idx: self._update_condition(node.node_id, i, "field", e.control.value),
+                    bgcolor="#05070a",
+                    border_color="#1f2937",
+                    color="#f8fafc",
+                    filled=True,
+                    width=100
+                )
+                
+                operator_dropdown = ft.Dropdown(
+                    label="Operator",
+                    options=[ft.dropdown.Option(op) for op in ["==", "!=", ">", ">=", "<", "<=", "contains", "exists", "in"]],
+                    value=cond.get("operator", "=="),
+                    on_change=lambda e, i=idx: self._update_condition(node.node_id, i, "operator", e.control.value),
+                    bgcolor="#05070a",
+                    border_color="#1f2937",
+                    color="#f8fafc",
+                    filled=True,
+                    width=90
+                )
+                
+                value_field = ft.TextField(
+                    label="Value",
+                    value=cond.get("value", ""),
+                    on_blur=lambda e, i=idx: self._update_condition(node.node_id, i, "value", e.control.value),
+                    bgcolor="#05070a",
+                    border_color="#1f2937",
+                    color="#f8fafc",
+                    filled=True,
+                    width=100
+                )
+                
+                delete_btn = ft.IconButton(
+                    ft.Icons.CLOSE,
+                    on_click=lambda e, i=idx: self._delete_condition(node.node_id, i),
+                    icon_color="#ef4444"
+                )
+                
+                controls.append(ft.Row([field_field, operator_dropdown, value_field, delete_btn], spacing=6))
+            
+            # Add Condition Button
+            add_cond_btn = ft.ElevatedButton(
+                "➕ Add Condition",
+                on_click=lambda e: self._add_condition(node.node_id),
+                style=ft.ButtonStyle(
+                    bgcolor="#40C4FF",
+                    color="#010409"
+                ),
+                width=150
+            )
+            controls.append(add_cond_btn)
+            
+            # Combine Operator
+            controls.append(ft.Divider(thickness=1, color="#1f2937"))
+            controls.append(ft.Text("Combine Conditions", size=10, weight="bold", color=ACCENT_COLOR))
+            
+            combine_op = node.settings.get("combine_operator", "AND")
+            
+            and_btn = ft.ElevatedButton(
+                "● AND" if combine_op == "AND" else "○ AND",
+                on_click=lambda e: self._update_node_setting(node.node_id, "combine_operator", "AND"),
+                width=110,
+                style=ft.ButtonStyle(
+                    bgcolor="#40C4FF" if combine_op == "AND" else "#1f2937",
+                    color="#010409" if combine_op == "AND" else "#cbd5f5"
+                )
+            )
+            or_btn = ft.ElevatedButton(
+                "● OR" if combine_op == "OR" else "○ OR",
+                on_click=lambda e: self._update_node_setting(node.node_id, "combine_operator", "OR"),
+                width=110,
+                style=ft.ButtonStyle(
+                    bgcolor="#40C4FF" if combine_op == "OR" else "#1f2937",
+                    color="#010409" if combine_op == "OR" else "#cbd5f5"
+                )
+            )
+            controls.append(ft.Row([and_btn, or_btn], spacing=8))
+        
+        # === ADVANCED MODE ===
+        else:
+            controls.append(ft.Divider(thickness=1, color="#1f2937"))
+            controls.append(ft.Text("Expression", size=10, weight="bold", color=ACCENT_COLOR))
+            
+            expr = node.settings.get("expression", "{{ value == true }}")
+            expr_field = ft.TextField(
+                value=expr,
+                on_blur=lambda e: self._update_node_setting(node.node_id, "expression", e.control.value),
+                multiline=True,
+                min_lines=3,
+                bgcolor="#05070a",
+                border_color="#1f2937",
+                color="#f8fafc",
+                filled=True,
+                hint_text="{{ field1 > value && field2 == 'text' }}"
+            )
+            controls.append(expr_field)
+        
+        # === OUTPUT ROUTING ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Output Routing", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        true_label = node.settings.get("true_label", "TRUE")
+        false_label = node.settings.get("false_label", "FALSE")
+        
+        true_field = ft.TextField(
+            label="TRUE Output",
+            value=true_label,
+            on_blur=lambda e: self._update_node_setting(node.node_id, "true_label", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            width=150
+        )
+        false_field = ft.TextField(
+            label="FALSE Output",
+            value=false_label,
+            on_blur=lambda e: self._update_node_setting(node.node_id, "false_label", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            width=150
+        )
+        controls.append(ft.Row([true_field, false_field], spacing=8))
+        
+        # === PREVIEW ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Preview", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        if mode == "simple":
+            conditions = node.settings.get("conditions", [])
+            preview_text = ""
+            for cond in conditions:
+                field = cond.get("field", "value")
+                op = cond.get("operator", "==")
+                val = cond.get("value", "")
+                preview_text += f"{field} {op} {val}\n"
+        else:
+            preview_text = node.settings.get("expression", "")
+        
+        preview_area = ft.TextField(
+            value=preview_text if preview_text else "(No preview)",
+            multiline=True,
+            read_only=True,
+            min_lines=3,
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#cbd5f5",
+            filled=True
+        )
+        controls.append(preview_area)
+        
+        # Test Button
+        test_btn = ft.ElevatedButton(
+            "▶ Test Condition",
+            icon=ft.Icons.PLAY_ARROW,
+            on_click=lambda e: self._test_if_else_condition(node.node_id),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                bgcolor="#40C4FF",
+                color="#010409"
+            ),
+            width=200
+        )
+        controls.append(test_btn)
+        
+        # Test Result
+        test_result = node.settings.get("last_test_result", "")
+        if test_result:
+            controls.append(ft.Divider(thickness=1, color="#1f2937"))
+            controls.append(ft.Text("Test Result", size=10, weight="bold", color=ACCENT_COLOR))
+            result_area = ft.TextField(
+                value=test_result,
+                multiline=True,
+                read_only=True,
+                min_lines=2,
                 bgcolor="#05070a",
                 border_color="#1f2937",
                 color="#cbd5f5",
@@ -1921,6 +2179,131 @@ class AgentWorkspace:
             error_msg = f"❌ Query error: {str(ex)}"
             node.settings["last_test_result"] = error_msg
             self._log(error_msg)
+        
+        self._update_inspector()
+    
+    def _update_condition(self, node_id: str, idx: int, field: str, value: str):
+        """Actualizar una condición específica."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        conditions = node.settings.get("conditions", [])
+        
+        if idx < len(conditions):
+            conditions[idx][field] = value
+            self._update_inspector()
+    
+    def _add_condition(self, node_id: str):
+        """Agregar una nueva condición."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        conditions = node.settings.get("conditions", [])
+        conditions.append({"field": "", "operator": "==", "value": ""})
+        node.settings["conditions"] = conditions
+        self._update_inspector()
+    
+    def _delete_condition(self, node_id: str, idx: int):
+        """Eliminar una condición."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        conditions = node.settings.get("conditions", [])
+        
+        if idx < len(conditions):
+            conditions.pop(idx)
+            node.settings["conditions"] = conditions
+            self._update_inspector()
+    
+    def _test_if_else_condition(self, node_id: str):
+        """Testear la evaluación de la condición."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        mode = node.settings.get("mode", "simple")
+        
+        try:
+            if mode == "simple":
+                conditions = node.settings.get("conditions", [])
+                combine_op = node.settings.get("combine_operator", "AND")
+                
+                if not conditions:
+                    node.settings["last_test_result"] = "❌ No conditions defined"
+                    self._log("❌ No conditions defined")
+                    self._update_inspector()
+                    return
+                
+                # Evaluar condiciones (simulado)
+                results = []
+                for cond in conditions:
+                    field = cond.get("field", "")
+                    op = cond.get("operator", "==")
+                    val = cond.get("value", "")
+                    
+                    # Para demostración, evaluar algunas condiciones básicas
+                    try:
+                        if op == "==":
+                            result = val == val  # Siempre true si es mismo valor
+                        elif op == "!=":
+                            result = field != val
+                        elif op == ">":
+                            result = float(field) > float(val) if field and val else False
+                        elif op == ">=":
+                            result = float(field) >= float(val) if field and val else False
+                        elif op == "<":
+                            result = float(field) < float(val) if field and val else False
+                        elif op == "<=":
+                            result = float(field) <= float(val) if field and val else False
+                        elif op == "contains":
+                            result = val in field if field and val else False
+                        elif op == "exists":
+                            result = bool(field)
+                        else:
+                            result = True
+                        
+                        results.append(result)
+                    except:
+                        results.append(False)
+                
+                # Combinar resultados
+                if combine_op == "AND":
+                    final_result = all(results) if results else False
+                else:  # OR
+                    final_result = any(results) if results else False
+                
+                result_text = "✅ TRUE" if final_result else "❌ FALSE"
+                cond_text = ", ".join([f"{c['field']} {c['operator']} {c['value']}" for c in conditions])
+                node.settings["last_test_result"] = f"Evaluating: {cond_text}\nResult: {result_text}"
+                self._log(f"Condition Test: {cond_text} → {result_text}")
+            
+            else:  # Advanced mode
+                expression = node.settings.get("expression", "")
+                
+                if not expression:
+                    node.settings["last_test_result"] = "❌ No expression defined"
+                    self._log("❌ No expression defined")
+                    self._update_inspector()
+                    return
+                
+                # Evaluar expresión (simplificado)
+                try:
+                    # Remover {{ }} si están presentes
+                    expr = expression.replace("{{", "").replace("}}", "").strip()
+                    
+                    # Para demostración, indicar que se evaluaría
+                    node.settings["last_test_result"] = f"Expression: {expr}\nNote: Requires runtime context to evaluate"
+                    self._log(f"Expression Preview: {expr}")
+                except Exception as e:
+                    node.settings["last_test_result"] = f"❌ Expression Error: {str(e)}"
+                    self._log(f"❌ Expression Error: {str(e)}")
+        
+        except Exception as ex:
+            node.settings["last_test_result"] = f"❌ Test Error: {str(ex)}"
+            self._log(f"❌ Test Error: {str(ex)}")
         
         self._update_inspector()
     
