@@ -1,0 +1,241 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "width": 1200,
+    "height": 800,
+    "zoom": 1.0,
+    "pan": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "nodes": [
+    {
+      "node_id": "a21de9f5-d4a",
+      "node_type": "dataset",
+      "x": 50,
+      "y": 50,
+      "width": 200,
+      "height": 180,
+      "params": {
+        "dataset_path": {
+          "name": "dataset_path",
+          "param_type": "str",
+          "value": "",
+          "description": "Ruta del archivo CSV o carpeta de imágenes",
+          "min_val": null,
+          "max_val": null,
+          "choices": null
+        },
+        "train_split": {
+          "name": "train_split",
+          "param_type": "float",
+          "value": 0.7,
+          "description": "Proporción de datos para entrenamiento",
+          "min_val": 0.1,
+          "max_val": 0.9,
+          "choices": null
+        },
+        "val_split": {
+          "name": "val_split",
+          "param_type": "float",
+          "value": 0.15,
+          "description": "Proporción de datos para validación",
+          "min_val": 0.0,
+          "max_val": 0.5,
+          "choices": null
+        },
+        "batch_size": {
+          "name": "batch_size",
+          "param_type": "int",
+          "value": 32,
+          "description": "Tamaño del batch",
+          "min_val": 1,
+          "max_val": 256,
+          "choices": null
+        },
+        "normalize": {
+          "name": "normalize",
+          "param_type": "bool",
+          "value": true,
+          "description": "Normalizar los datos",
+          "min_val": null,
+          "max_val": null,
+          "choices": null
+        }
+      },
+      "state": "idle",
+      "output_data": {}
+    },
+    {
+      "node_id": "d9510311-03e",
+      "node_type": "model",
+      "x": 277.0,
+      "y": 65.0,
+      "width": 200,
+      "height": 200,
+      "params": {
+        "model_type": {
+          "name": "model_type",
+          "param_type": "choice",
+          "value": "cnn",
+          "description": "Tipo de modelo",
+          "min_val": null,
+          "max_val": null,
+          "choices": [
+            "cnn",
+            "lstm",
+            "transformer",
+            "xgboost",
+            "sklearn_rf",
+            "custom"
+          ]
+        },
+        "learning_rate": {
+          "name": "learning_rate",
+          "param_type": "float",
+          "value": 0.001,
+          "description": "Learning rate",
+          "min_val": 1e-05,
+          "max_val": 0.1,
+          "choices": null
+        },
+        "optimizer": {
+          "name": "optimizer",
+          "param_type": "choice",
+          "value": "adam",
+          "description": "Optimizador",
+          "min_val": null,
+          "max_val": null,
+          "choices": [
+            "adam",
+            "sgd",
+            "rmsprop"
+          ]
+        },
+        "loss_function": {
+          "name": "loss_function",
+          "param_type": "choice",
+          "value": "cross_entropy",
+          "description": "Función de pérdida",
+          "min_val": null,
+          "max_val": null,
+          "choices": [
+            "cross_entropy",
+            "mse",
+            "l1"
+          ]
+        }
+      },
+      "state": "idle",
+      "output_data": {}
+    },
+    {
+      "node_id": "452ec50f-d0b",
+      "node_type": "training",
+      "x": 496.0,
+      "y": 48.0,
+      "width": 200,
+      "height": 180,
+      "params": {
+        "epochs": {
+          "name": "epochs",
+          "param_type": "int",
+          "value": 10,
+          "description": "Número de épocas",
+          "min_val": 1,
+          "max_val": 500,
+          "choices": null
+        },
+        "early_stopping": {
+          "name": "early_stopping",
+          "param_type": "bool",
+          "value": true,
+          "description": "Usar early stopping",
+          "min_val": null,
+          "max_val": null,
+          "choices": null
+        },
+        "patience": {
+          "name": "patience",
+          "param_type": "int",
+          "value": 5,
+          "description": "Paciencia para early stopping",
+          "min_val": 1,
+          "max_val": 50,
+          "choices": null
+        }
+      },
+      "state": "idle",
+      "output_data": {}
+    },
+    {
+      "node_id": "24ac7bab-ebb",
+      "node_type": "test",
+      "x": 806.0,
+      "y": 42.0,
+      "width": 200,
+      "height": 160,
+      "params": {
+        "metric": {
+          "name": "metric",
+          "param_type": "choice",
+          "value": "accuracy",
+          "description": "Métrica principal",
+          "min_val": null,
+          "max_val": null,
+          "choices": [
+            "accuracy",
+            "f1",
+            "roc_auc",
+            "precision",
+            "recall"
+          ]
+        }
+      },
+      "state": "idle",
+      "output_data": {}
+    },
+    {
+      "node_id": "a1d18086-6fc",
+      "node_type": "output",
+      "x": 766.0,
+      "y": 190.0,
+      "width": 200,
+      "height": 160,
+      "params": {},
+      "state": "idle",
+      "output_data": {}
+    }
+  ],
+  "connections": [
+    {
+      "connection_id": "2eb3dd5e",
+      "source_node_id": "a21de9f5-d4a",
+      "source_port": "dataset",
+      "target_node_id": "d9510311-03e",
+      "target_port": "dataset"
+    },
+    {
+      "connection_id": "69dd3df2",
+      "source_node_id": "d9510311-03e",
+      "source_port": "model",
+      "target_node_id": "452ec50f-d0b",
+      "target_port": "model"
+    },
+    {
+      "connection_id": "9ed4b627",
+      "source_node_id": "24ac7bab-ebb",
+      "source_port": "results",
+      "target_node_id": "a1d18086-6fc",
+      "target_port": "metrics"
+    },
+    {
+      "connection_id": "50be386e",
+      "source_node_id": "452ec50f-d0b",
+      "source_port": "metrics",
+      "target_node_id": "a1d18086-6fc",
+      "target_port": "metrics"
+    }
+  ]
+}

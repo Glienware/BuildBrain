@@ -273,7 +273,7 @@ class AndroidStyleMainWindow:
                 ft.Tab(
                     text="Nodos",
                     icon=ft.Icons.EXTENSION,
-                    content=NodesPanel()
+                    content=NodesPanel(dataset_path=self.dataset_manager.dataset_path)
                 ),
                 ft.Tab(
                     text="Test",

@@ -194,7 +194,7 @@ class BaseNode:
 class NodeCanvas:
     """Gestor del canvas visual con todos los nodos."""
     
-    def __init__(self, width: float = 1200, height: float = 800):
+    def __init__(self, width: float = 1200, height: float = 800, dataset_path: Optional[str] = None):
         self.width = width
         self.height = height
         self.nodes: Dict[str, BaseNode] = {}
@@ -203,6 +203,7 @@ class NodeCanvas:
         self.zoom = 1.0
         self.pan_x = 0
         self.pan_y = 0
+        self.dataset_path = dataset_path
     
     def add_node(self, node: BaseNode):
         """Agrega un nodo al canvas."""

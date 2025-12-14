@@ -449,10 +449,11 @@ class CanvasView(ft.GestureDetector):
 class NodesPanel(ft.Column):
     """Panel principal para la sección de nodos con mejor diseño."""
     
-    def __init__(self):
+    def __init__(self, dataset_path: Optional[str] = None):
         super().__init__(expand=True, spacing=0)
+        self.dataset_path = dataset_path
         
-        self.canvas = NodeCanvas(width=1200, height=800)
+        self.canvas = NodeCanvas(width=1200, height=800, dataset_path=dataset_path)
         self.executor = TopologicalExecutor(self.canvas)
         
         self.canvas_view = CanvasView()
@@ -594,7 +595,7 @@ class NodesPanel(ft.Column):
     
     def _on_node_added(self, node_type: str, x: float, y: float):
         """Se llama cuando un nodo es arrastrado al canvas."""
-        node = NodeFactory.create_node(node_type, x=x, y=y)
+        node = NodeFactory.create_node(node_type, x=x, y=y, dataset_path=self.dataset_path)
         if node:
             self.canvas.add_node(node)
             self.canvas_view.add_visual(node)

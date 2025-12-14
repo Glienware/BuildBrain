@@ -4,6 +4,8 @@ Incluye Dataset, Model, Training, Test y Output nodes.
 """
 
 import asyncio
+import os
+from pathlib import Path
 from typing import Any, Dict, Optional, List
 from .base import BaseNode, NodeParam, NodeState
 import time
@@ -11,23 +13,28 @@ import time
 
 class DatasetNode(BaseNode):
     """Nodo para seleccionar y configurar datasets."""
-    
+
     NODE_TYPE = "dataset"
     DISPLAY_NAME = "Dataset"
     DESCRIPTION = "Carga y configura un dataset para entrenamiento"
-    
-    def __init__(self, node_id: Optional[str] = None, x: float = 0, y: float = 0):
+
+    _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}
+
+    def __init__(self, node_id: Optional[str] = None, x: float = 0, y: float = 0,
+                 dataset_path: Optional[str] = None):
         super().__init__(node_id, x, y)
         self.height = 180
-        
+        self.default_dataset_path = dataset_path
+        self._resolved_dataset_path: Optional[str] = None
+
         # Puertos
         self.add_output_port("dataset", "dataset")
-        
+
         # Parámetros
         self.add_param(NodeParam(
             "dataset_path",
             "str",
-            "",
+            dataset_path or "",
             "Ruta del archivo CSV o carpeta de imágenes"
         ))
         self.add_param(NodeParam(
@@ -60,43 +67,92 @@ class DatasetNode(BaseNode):
             True,
             "Normalizar los datos"
         ))
-    
+
+    def _resolve_dataset_path(self) -> Optional[str]:
+        value = self.get_param("dataset_path")
+        if value:
+            return os.path.abspath(value)
+        if self.default_dataset_path:
+            return os.path.abspath(self.default_dataset_path)
+        return None
+
     def validate(self) -> tuple[bool, str]:
         """Valida la configuración del dataset."""
-        dataset_path = self.get_param("dataset_path")
+        dataset_path = self._resolve_dataset_path()
         if not dataset_path:
             return False, "Dataset path requerido"
+        if not os.path.exists(dataset_path):
+            return False, f"Ruta no encontrada: {dataset_path}"
+        self._resolved_dataset_path = dataset_path
+        self.params["dataset_path"].value = dataset_path
         return True, ""
-    
+
     async def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Carga el dataset."""
+        """Carga el dataset y recopila información real del disco."""
         self.state = NodeState.RUNNING
         start_time = time.time()
-        
+
         try:
-            dataset_path = self.get_param("dataset_path")
-            
-            # Simulación de carga (en producción, usar pandas/torch.data)
+            dataset_path = self._resolved_dataset_path or self._resolve_dataset_path()
+            if not dataset_path or not os.path.exists(dataset_path):
+                raise FileNotFoundError("Dataset path inválido o inexistente")
+
             await asyncio.sleep(0.5)
-            
-            self.output_data = {
-                "dataset_path": dataset_path,
-                "num_samples": 1000,
-                "num_features": 20,
-                "train_split": self.get_param("train_split"),
-                "val_split": self.get_param("val_split"),
-                "batch_size": self.get_param("batch_size"),
-            }
-            
+
+            summary = self._summarize_dataset(dataset_path)
+            self.output_data = summary
+
             self.state = NodeState.SUCCESS
             self.execution_time = time.time() - start_time
-            return {"dataset": self.output_data}
-        
+            return {"dataset": summary}
+
         except Exception as e:
             self.state = NodeState.ERROR
             self.error_message = str(e)
             self.execution_time = time.time() - start_time
             return {}
+
+    def _summarize_dataset(self, dataset_path: str) -> Dict[str, Any]:
+        path_obj = Path(dataset_path)
+        summary: Dict[str, Any] = {
+            "dataset_path": dataset_path,
+            "train_split": self.get_param("train_split"),
+            "val_split": self.get_param("val_split"),
+            "batch_size": self.get_param("batch_size"),
+            "normalize": self.get_param("normalize"),
+        }
+
+        if path_obj.is_dir():
+            classes = sorted([p.name for p in path_obj.iterdir() if p.is_dir()])
+            samples = 0
+            for class_dir in path_obj.iterdir():
+                if not class_dir.is_dir():
+                    continue
+                for file in class_dir.iterdir():
+                    if file.is_file() and file.suffix.lower() in self._IMAGE_EXTENSIONS:
+                        samples += 1
+            summary.update({
+                "dataset_type": "image_folder",
+                "classes": classes,
+                "num_samples": samples,
+            })
+        elif path_obj.is_file():
+            suffix = path_obj.suffix.lower()
+            summary.update({
+                "dataset_type": suffix or "file",
+                "file_size": path_obj.stat().st_size,
+            })
+            if suffix == ".csv":
+                with open(path_obj, "r", encoding="utf-8", errors="ignore") as csvfile:
+                    header_line = csvfile.readline().strip()
+                    columns = [col.strip() for col in header_line.split(",") if col.strip()]
+                    row_count = sum(1 for _ in csvfile)
+                summary["columns"] = columns
+                summary["num_rows"] = row_count
+        else:
+            summary["dataset_type"] = "unknown"
+
+        return summary
 
 
 class ModelNode(BaseNode):
@@ -379,7 +435,11 @@ class NodeFactory:
         """Crea una instancia de nodo del tipo especificado."""
         node_class = cls._NODE_REGISTRY.get(node_type)
         if node_class:
-            return node_class(**kwargs)
+            init_kwargs = dict(kwargs)
+            dataset_path = init_kwargs.pop("dataset_path", None)
+            if node_type == "dataset" and dataset_path is not None:
+                init_kwargs["dataset_path"] = dataset_path
+            return node_class(**init_kwargs)
         return None
     
     @classmethod

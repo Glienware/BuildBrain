@@ -12,6 +12,7 @@ import os
 import sys
 from src.gui.welcome_screen import WelcomeScreen
 from src.gui.main_window import AndroidStyleMainWindow
+from src.gui.agent_workspace import AgentWorkspace
 
 
 def get_projects_directory():
@@ -58,6 +59,7 @@ class AppController:
         self.current_view = None
         self.main_window = None
         self.welcome_screen = None
+        self.agent_workspace = None
         self.projects_dir = get_projects_directory()
 
     def show_welcome_screen(self, e=None):
@@ -68,6 +70,7 @@ class AppController:
                 self.page,
                 on_new_project=self.on_new_project,
                 on_open_project=self.on_open_project,
+                on_agent_builder=self.show_agent_workspace,
                 on_project_created=self.on_project_created
             )
         else:
@@ -129,6 +132,21 @@ class AppController:
             print(f"ERROR in on_open_project: {str(e)}")
             import traceback
             traceback.print_exc()
+
+    def show_agent_workspace(self, e=None):
+        """Show the dedicated AI agent workspace."""
+        if self.agent_workspace is None:
+            agent_dir = os.path.join(self.projects_dir, "agents")
+            self.agent_workspace = AgentWorkspace(
+                self.page,
+                agents_dir=agent_dir,
+                on_back_to_welcome=self.show_welcome_screen
+            )
+
+        self.current_view = self.agent_workspace.build()
+        self.page.controls.clear()
+        self.page.add(self.current_view)
+        self.page.update()
 
 
 def main(page: ft.Page):

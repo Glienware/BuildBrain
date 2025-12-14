@@ -15,14 +15,15 @@ from .new_project_wizard import NewProjectWizard
 
 class WelcomeScreen:
     """
-    Welcome screen with options to create new model or open existing project.
+    Welcome screen with options to create new model, open existing projects, or launch the AI agent workspace.
     """
 
-    def __init__(self, page: ft.Page, on_new_project, on_open_project, on_project_created=None):
+    def __init__(self, page: ft.Page, on_new_project, on_open_project, on_project_created=None, on_agent_builder=None):
         self.page = page
         self.on_new_project = on_new_project
         self.on_open_project = on_open_project
         self.on_project_created = on_project_created
+        self.on_agent_builder = on_agent_builder
         # Use persistent directory for compiled executables
         if getattr(sys, 'frozen', False):
             app_data = os.getenv('LOCALAPPDATA')
@@ -172,6 +173,42 @@ class WelcomeScreen:
                                         on_click=self.show_project_selector,
                                         style=ft.ButtonStyle(
                                             bgcolor="#82B1FF",
+                                            color=ft.Colors.BLACK,
+                                            padding=ft.padding.symmetric(horizontal=24, vertical=12),
+                                            shape=ft.RoundedRectangleBorder(radius=8),
+                                        ),
+                                    ),
+                                ], spacing=0),
+                                padding=ft.padding.all(24),
+                                bgcolor="#1A1A1A",
+                                border=ft.border.all(1.5, "#2D2D2D"),
+                                border_radius=12,
+                                expand=True,
+                            ),
+
+                            ft.Container(width=20),
+
+                            # AI Agent Card
+                            ft.Container(
+                                content=ft.Column([
+                                    ft.Row([
+                                        ft.Icon(ft.Icons.ANDROID, size=28, color="#FF6D00"),
+                                        ft.Container(width=12),
+                                        ft.Text("Agente de IA", size=16, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                                    ], spacing=0, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                                    ft.Container(height=12),
+                                    ft.Text(
+                                        "Crea agentes inteligentes con nodos personalizados en un área dedicada",
+                                        size=12,
+                                        color="#AAAAAA",
+                                    ),
+                                    ft.Container(height=16),
+                                    ft.ElevatedButton(
+                                        "Crear Agente",
+                                        icon=ft.Icons.ANDROID,
+                                        on_click=self.show_agent_builder,
+                                        style=ft.ButtonStyle(
+                                            bgcolor="#FF6D00",
                                             color=ft.Colors.BLACK,
                                             padding=ft.padding.symmetric(horizontal=24, vertical=12),
                                             shape=ft.RoundedRectangleBorder(radius=8),
@@ -452,6 +489,11 @@ class WelcomeScreen:
         """Open an existing project."""
         if self.on_open_project:
             self.on_open_project(project_data)
+
+    def show_agent_builder(self, e=None):
+        """Navigate to the AI agent builder section."""
+        if self.on_agent_builder:
+            self.on_agent_builder(e)
 
     def show_project_selector(self, e):
         """Show project selection dialog with all projects."""
