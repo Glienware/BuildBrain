@@ -70,6 +70,10 @@ class AgentWorkspace:
         self.is_panning = False
         self.pan_start_x = 0.0
         self.pan_start_y = 0.0
+        
+        # Throttle para redibujado de conexiones (evitar lag)
+        self.last_connection_draw = 0.0
+        self.connection_draw_throttle = 0.05  # 50ms entre redibujados
 
         # Catálogo
         self.node_catalog = get_all_nodes_by_category()
@@ -564,11 +568,17 @@ class AgentWorkspace:
                 except:
                     pass
             
-            # Redibujar conexiones cuando se mueve un nodo
-            self._draw_connections()
+            # Redibujar conexiones CON THROTTLE (solo cada 50ms)
+            import time
+            current_time = time.time()
+            if current_time - self.last_connection_draw > self.connection_draw_throttle:
+                self._draw_connections()
+                self.last_connection_draw = current_time
 
         def _on_node_drag_end(e):
             self.dragging_node = None
+            # Redibuja conexiones al final para asegurar que estén correctas
+            self._draw_connections()
 
         def _on_node_click(e):
             self.selected_node = node.node_id
@@ -826,7 +836,7 @@ class AgentWorkspace:
             self._draw_connections()
     
     def _draw_connections(self):
-        """Dibujar todas las conexiones en el canvas."""
+        """Dibujar todas las conexiones en el canvas (optimizado)."""
         try:
             if not hasattr(self, 'connections_stack') or self.connections_stack is None:
                 return
@@ -837,7 +847,10 @@ class AgentWorkspace:
             except:
                 pass
             
-            # Dibujar conexiones completadas
+            # Dibujar conexiones completadas - SOLO si hay conexiones
+            if not self.connections:
+                return
+                
             for conn_id, conn in self.connections.items():
                 try:
                     self._draw_connection_line(
@@ -890,8 +903,8 @@ class AgentWorkspace:
                 return
             
             # Crear una curva suave usando múltiples segmentos
-            # Usaremos una curva Bezier aproximada con 5-10 segmentos
-            segments = max(5, int(distance / 50))  # Más segmentos para distancias largas
+            # OPTIMIZADO: máximo 8 segmentos en lugar de 10+
+            segments = max(3, min(8, int(distance / 70)))  # Menos segmentos = mejor performance
             
             # Puntos de control para la curva Bezier
             ctrl1_x = source_x + dx / 3
