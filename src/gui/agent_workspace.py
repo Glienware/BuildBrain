@@ -197,6 +197,10 @@ class AgentWorkspace:
 
     def _refresh_left_panel(self):
         self.left_panel_container.content = self._build_left_panel_content()
+        try:
+            self.left_panel_container.update()
+        except:
+            pass
 
     def _focus_node(self, node_id: str):
         if node_id in self.nodes:
@@ -207,7 +211,10 @@ class AgentWorkspace:
 
     def _refresh_node_count(self):
         self.node_count_text.value = f"{len(self.nodes)} nodes"
-        self.node_count_text.update()
+        try:
+            self.node_count_text.update()
+        except:
+            pass
 
     def _open_node_palette(self, e=None):
         """Abrir diálogo de paleta de nodos usando una vista modal personalizada."""
