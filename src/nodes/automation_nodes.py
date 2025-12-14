@@ -1077,7 +1077,13 @@ class DashboardOutputNode(NodeConfig):
             display_name="Dashboard Output",
             description="Display on dashboard/UI",
             category="OUTPUT",
-            settings={"widget_type": "text", "widget_id": ""},
+            settings={
+                "title": "Output Display",
+                "display_mode": "json",  # json or table
+                "data_source": "{{ input.data }}",
+                "widget_id": "",
+                "preview_data": ""
+            },
             input_ports={
                 "data": Port("data", DataType.ANY, "Data to display")
             },

@@ -708,6 +708,9 @@ class AgentWorkspace:
         # ESPECIAL: Interfaz para If/Else
         elif node.config.node_type == "if_else":
             controls = self._build_if_else_inspector(node, controls)
+        # ESPECIAL: Interfaz para Dashboard Output
+        elif node.config.node_type == "dashboard_output":
+            controls = self._build_dashboard_output_inspector(node, controls)
         else:
             # Interfaz genérica para otros nodos
             controls = self._build_generic_node_inspector(node, controls)
@@ -1343,6 +1346,121 @@ class AgentWorkspace:
                 filled=True
             )
             controls.append(result_area)
+        
+        return controls
+    
+    def _build_dashboard_output_inspector(self, node, controls):
+        """Construir interfaz especializada para Dashboard Output."""
+        
+        # === TITLE ===
+        controls.append(ft.Text("Title", size=10, weight="bold", color=ACCENT_COLOR))
+        title_field = ft.TextField(
+            value=node.settings.get("title", "Output Display"),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "title", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="Dashboard title"
+        )
+        controls.append(title_field)
+        
+        # === DISPLAY MODE ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Display Mode", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        display_mode = node.settings.get("display_mode", "json")
+        
+        def on_display_mode_change(new_mode):
+            node.settings["display_mode"] = new_mode
+            self._update_inspector()
+        
+        json_btn = ft.ElevatedButton(
+            "● JSON" if display_mode == "json" else "○ JSON",
+            on_click=lambda e: on_display_mode_change("json"),
+            width=110,
+            style=ft.ButtonStyle(
+                bgcolor="#40C4FF" if display_mode == "json" else "#1f2937",
+                color="#010409" if display_mode == "json" else "#cbd5f5"
+            )
+        )
+        table_btn = ft.ElevatedButton(
+            "● Table" if display_mode == "table" else "○ Table",
+            on_click=lambda e: on_display_mode_change("table"),
+            width=110,
+            style=ft.ButtonStyle(
+                bgcolor="#40C4FF" if display_mode == "table" else "#1f2937",
+                color="#010409" if display_mode == "table" else "#cbd5f5"
+            )
+        )
+        controls.append(ft.Row([json_btn, table_btn], spacing=8))
+        
+        # === DATA SOURCE ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Data Source", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        data_source = node.settings.get("data_source", "{{ input.data }}")
+        source_field = ft.TextField(
+            value=data_source,
+            on_blur=lambda e: self._update_node_setting(node.node_id, "data_source", e.control.value),
+            multiline=True,
+            min_lines=2,
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="{{ variable.path }}"
+        )
+        controls.append(source_field)
+        
+        # === WIDGET ID (Optional) ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Widget ID (Optional)", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        widget_id = node.settings.get("widget_id", "")
+        widget_field = ft.TextField(
+            value=widget_id,
+            on_blur=lambda e: self._update_node_setting(node.node_id, "widget_id", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="dashboard_widget_123"
+        )
+        controls.append(widget_field)
+        
+        # === PREVIEW ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Preview", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        preview_data = node.settings.get("preview_data", "")
+        preview_text = f"Mode: {display_mode.upper()}\nSource: {data_source}\n{preview_data}" if preview_data else f"Mode: {display_mode.upper()}\nSource: {data_source}\n(No data yet)"
+        
+        preview_area = ft.TextField(
+            value=preview_text,
+            multiline=True,
+            read_only=True,
+            min_lines=4,
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#cbd5f5",
+            filled=True
+        )
+        controls.append(preview_area)
+        
+        # === TEST BUTTON ===
+        test_btn = ft.ElevatedButton(
+            "▶ Test Display",
+            icon=ft.Icons.PLAY_ARROW,
+            on_click=lambda e: self._test_dashboard_output(node.node_id),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                bgcolor="#40C4FF",
+                color="#010409"
+            ),
+            width=200
+        )
+        controls.append(test_btn)
         
         return controls
     
@@ -2306,6 +2424,49 @@ class AgentWorkspace:
             self._log(f"❌ Test Error: {str(ex)}")
         
         self._update_inspector()
+    
+    def _test_dashboard_output(self, node_id: str):
+        """Testear la salida del dashboard."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        display_mode = node.settings.get("display_mode", "json")
+        data_source = node.settings.get("data_source", "{{ input.data }}")
+        title = node.settings.get("title", "Output Display")
+        
+        self._log(f"🔄 Testing dashboard output...")
+        
+        try:
+            # Crear datos de ejemplo para demostración
+            if display_mode == "json":
+                example_data = {
+                    "title": title,
+                    "timestamp": datetime.now().isoformat(),
+                    "data": [
+                        {"id": 1, "name": "Item 1", "value": 100},
+                        {"id": 2, "name": "Item 2", "value": 200}
+                    ]
+                }
+                import json
+                preview_json = json.dumps(example_data, indent=2)
+                node.settings["preview_data"] = preview_json
+                self._log(f"✅ JSON output ready: {title}")
+            
+            elif display_mode == "table":
+                preview_table = "ID | Name      | Value\n"
+                preview_table += "---|-----------|-------\n"
+                preview_table += "1  | Item 1    | 100\n"
+                preview_table += "2  | Item 2    | 200"
+                node.settings["preview_data"] = preview_table
+                self._log(f"✅ Table output ready: {title}")
+            
+            self._update_inspector()
+        
+        except Exception as ex:
+            self._log(f"❌ Dashboard test error: {str(ex)}")
+            node.settings["preview_data"] = f"Error: {str(ex)}"
+            self._update_inspector()
     
     def _log(self, message: str):
         """Agregar mensaje al log."""
