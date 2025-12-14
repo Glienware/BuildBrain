@@ -475,7 +475,7 @@ class AgentWorkspace:
     
     def _refresh_right_panel(self):
         inspector_frame = ft.Container(
-            content=self.inspector_content,
+            content=ft.Column([self.inspector_content], expand=True, scroll=ft.ScrollMode.AUTO),
             expand=True,
             bgcolor="#05070a",
             border_radius=14,
@@ -699,10 +699,153 @@ class AgentWorkspace:
         node = self.nodes[self.selected_node]
         controls = [ft.Text(f"Node: {node.config.display_name}", weight="bold")]
         
+        # ESPECIAL: Interfaz completa para Manual Trigger
+        if node.config.node_type == "manual_trigger":
+            controls = self._build_manual_trigger_inspector(node, controls)
+        else:
+            # Interfaz genérica para otros nodos
+            controls = self._build_generic_node_inspector(node, controls)
+        
+        self.inspector_content.controls = controls
+        self.inspector_content.update()
+        self.right_panel_container.update()
+    
+    def _build_manual_trigger_inspector(self, node, controls):
+        """Construir interfaz especial para Manual Trigger."""
+        controls.append(ft.Text("Execution Name", size=10, weight="bold", color=ACCENT_COLOR))
+        exec_name_field = ft.TextField(
+            value=node.settings.get("execution_name", "Untitled Workflow"),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "execution_name", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="Name your execution..."
+        )
+        controls.append(exec_name_field)
+        
+        # Input Variables
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Input Variables", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        # Agregar variables dinámicas
+        input_vars = node.settings.get("input_variables", {})
+        if isinstance(input_vars, dict):
+            for var_name, var_value in input_vars.items():
+                # Fila para cada variable: nombre [valor]
+                controls.append(ft.Text(var_name, size=9, color="#cbd5f5"))
+                var_field = ft.TextField(
+                    value=str(var_value),
+                    on_blur=lambda e, vn=var_name: self._update_input_variable(node.node_id, vn, e.control.value),
+                    bgcolor="#05070a",
+                    border_color="#1f2937",
+                    color="#f8fafc",
+                    filled=True,
+                    height=40
+                )
+                controls.append(var_field)
+        
+        # Botón para agregar variable
+        add_var_btn = ft.ElevatedButton(
+            "➕ Add Variable",
+            icon=ft.Icons.ADD,
+            on_click=lambda e: self._add_input_variable(node.node_id),
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+            width=180
+        )
+        controls.append(add_var_btn)
+        
+        # Advanced - Raw JSON Input
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Advanced", size=10, weight="bold", color=ACCENT_COLOR))
+        controls.append(ft.Text("Raw JSON Input", size=9, color="#94a3b8"))
+        
+        raw_json = node.settings.get("raw_json_input", "{}")
+        json_field = ft.TextField(
+            value=raw_json,
+            on_blur=lambda e: self._update_node_setting(node.node_id, "raw_json_input", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            min_lines=4,
+            multiline=True,
+            hint_text='{"key": "value"}'
+        )
+        controls.append(json_field)
+        
+        # Mode Selection - Simple buttons
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Mode", size=10, weight="bold", color=ACCENT_COLOR))
+        
+        current_mode = node.settings.get("mode", "test")
+        
+        def on_mode_change(mode_val):
+            self._update_node_setting(node.node_id, "mode", mode_val)
+            self._update_inspector()
+        
+        # Botones para los modos
+        test_btn = ft.ElevatedButton(
+            "Test",
+            bgcolor=ACCENT_COLOR if current_mode == "test" else "#1f2937",
+            color="#010409" if current_mode == "test" else "#f8fafc",
+            on_click=lambda e: on_mode_change("test"),
+            width=90
+        )
+        
+        prod_btn = ft.ElevatedButton(
+            "Production",
+            bgcolor=ACCENT_COLOR if current_mode == "production" else "#1f2937",
+            color="#010409" if current_mode == "production" else "#f8fafc",
+            on_click=lambda e: on_mode_change("production"),
+            width=110
+        )
+        
+        mode_row = ft.Row([test_btn, prod_btn], spacing=8)
+        controls.append(mode_row)
+        
+        # Run Workflow Button
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        run_btn = ft.ElevatedButton(
+            "▶ Run Workflow",
+            icon=ft.Icons.PLAY_ARROW,
+            on_click=lambda e: self._execute_workflow_from_node(node.node_id),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                bgcolor="#40C4FF",
+                color="#010409"
+            ),
+            width=200
+        )
+        controls.append(run_btn)
+        
+        return controls
+    
+    def _build_generic_node_inspector(self, node, controls):
+        """Construir interfaz genérica para otros nodos."""
         for setting_name, setting_value in node.settings.items():
             controls.append(ft.Text(f"{setting_name}", size=10))
             
-            if isinstance(setting_value, bool):
+            # ESPECIAL: Si es OpenRouter y el setting es "model", mostrar dropdown
+            if (node.config.node_type == "open_router" and setting_name == "model" and 
+                hasattr(node.config, 'available_models')):
+                
+                # Crear dropdown con modelos disponibles
+                model_options = [
+                    ft.dropdown.Option(model) for model in node.config.available_models
+                ]
+                
+                input_control = ft.Dropdown(
+                    label="Select Model",
+                    options=model_options,
+                    value=setting_value,
+                    on_change=lambda e, sn=setting_name: self._update_node_setting(node.node_id, sn, e.control.value),
+                    bgcolor="#05070a",
+                    border_color="#1f2937",
+                    color="#f8fafc",
+                    filled=True
+                )
+            elif isinstance(setting_value, bool):
                 input_control = ft.Checkbox(
                     value=setting_value,
                     on_change=lambda e, sn=setting_name: self._update_node_setting(node.node_id, sn, e.control.value)
@@ -719,13 +862,243 @@ class AgentWorkspace:
                 )
             
             controls.append(input_control)
+            
+            # Agregar botón de test después del api_key en nodos OpenRouter
+            if node.config.node_type == "open_router" and setting_name == "api_key":
+                test_btn = ft.ElevatedButton(
+                    "Test Connection",
+                    icon=ft.Icons.VERIFIED,
+                    on_click=lambda e, nid=node.node_id: self._test_openrouter_connection(nid),
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        bgcolor=ACCENT_COLOR,
+                        color="#010409"
+                    ),
+                    width=200
+                )
+                controls.append(test_btn)
+                
+                # Agregar sección de Output para OpenRouter
+                controls.append(ft.Divider(thickness=1, color="#1f2937"))
+                controls.append(ft.Text("Output", size=10, weight="bold", color=ACCENT_COLOR))
+                
+                # Área de respuesta del LLM
+                output_response = node.settings.get("last_response", "")
+                output_status = node.settings.get("last_response_status", "pending")
+                
+                # Indicador de estado
+                if output_status == "success":
+                    status_color = "#10b981"
+                    status_icon = "✅"
+                elif output_status == "error":
+                    status_color = "#ef4444"
+                    status_icon = "❌"
+                else:
+                    status_color = "#94a3b8"
+                    status_icon = "⏳"
+                
+                status_row = ft.Row([
+                    ft.Icon(ft.Icons.CIRCLE, size=12, color=status_color),
+                    ft.Text(f"Status: {output_status.upper()}", size=9, color=status_color, weight="bold")
+                ], spacing=6)
+                controls.append(status_row)
+                
+                # Área de respuesta (read-only)
+                response_area = ft.TextField(
+                    value=output_response if output_response else "(No response yet)",
+                    multiline=True,
+                    read_only=True,
+                    min_lines=4,
+                    bgcolor="#05070a",
+                    border_color="#1f2937",
+                    color="#cbd5f5",
+                    filled=True
+                )
+                controls.append(response_area)
+                
+                # Botón para limpiar output
+                clear_btn = ft.ElevatedButton(
+                    "Clear Output",
+                    icon=ft.Icons.CLEAR,
+                    on_click=lambda e: self._clear_openrouter_output(node.node_id),
+                    width=120
+                )
+                controls.append(clear_btn)
         
-        self.inspector_content.controls = controls
-        self.inspector_content.update()
-        self.right_panel_container.update()
+        return controls
     
-    def _apply_zoom(self):
-        """Aplicar zoom a todos los nodos."""
+    def _test_openrouter_connection(self, node_id: str):
+        """Testear la conexión con OpenRouter API."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        api_key = node.settings.get("api_key", "").strip()
+        
+        # Validar que el API key no esté vacío
+        if not api_key:
+            self._log("❌ API Key is empty. Please enter your OpenRouter API key.")
+            return
+        
+        # Mostrar que estamos testando
+        self._log(f"🔄 Testing OpenRouter connection...")
+        
+        try:
+            import requests
+            
+            # Test simple: llamada a la API con modelo rápido
+            response = requests.post(
+                url="https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "BuildBrain",
+                    "X-Title": "BuildBrain"
+                },
+                json={
+                    "model": node.settings.get("model", "mistralai/devstral-2512:free"),
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "Say 'Hello' in one word."
+                        }
+                    ],
+                    "max_tokens": 10
+                },
+                timeout=10
+            )
+            
+            # Validar respuesta
+            if response.status_code == 200:
+                result = response.json()
+                if "choices" in result and len(result["choices"]) > 0:
+                    content = result["choices"][0].get("message", {}).get("content", "")
+                    # Guardar respuesta en el nodo
+                    node.settings["last_response"] = content
+                    node.settings["last_response_status"] = "success"
+                    self._log(f"✅ OpenRouter connection successful! Response: '{content}'")
+                    self._update_inspector()  # Refrescar para mostrar output
+                    return
+                else:
+                    self._log(f"⚠️ API returned 200 but unexpected format")
+                    node.settings["last_response_status"] = "error"
+            elif response.status_code == 401:
+                node.settings["last_response"] = "Authentication failed. Invalid API Key."
+                node.settings["last_response_status"] = "error"
+                self._log(f"❌ Authentication failed. Invalid API Key.")
+                self._update_inspector()
+            elif response.status_code == 429:
+                node.settings["last_response"] = "Rate limited. Please try again later."
+                node.settings["last_response_status"] = "error"
+                self._log(f"❌ Rate limited. Please try again later.")
+                self._update_inspector()
+            else:
+                error_msg = response.json().get("error", {}).get("message", response.text)
+                node.settings["last_response"] = f"API Error ({response.status_code}): {error_msg}"
+                node.settings["last_response_status"] = "error"
+                self._log(f"❌ API Error ({response.status_code}): {error_msg}")
+                self._update_inspector()
+        
+        except requests.exceptions.Timeout:
+            node.settings["last_response"] = "Connection timeout. Check your internet."
+            node.settings["last_response_status"] = "error"
+            self._log(f"❌ Connection timeout. Check your internet.")
+            self._update_inspector()
+        except requests.exceptions.ConnectionError:
+            node.settings["last_response"] = "Connection error. Unable to reach OpenRouter."
+            node.settings["last_response_status"] = "error"
+            self._log(f"❌ Connection error. Unable to reach OpenRouter.")
+            self._update_inspector()
+        except Exception as e:
+            node.settings["last_response"] = f"Error: {str(e)}"
+            node.settings["last_response_status"] = "error"
+            self._log(f"❌ Error: {str(e)}")
+            self._update_inspector()
+    
+    def _clear_openrouter_output(self, node_id: str):
+        """Limpiar el output del nodo OpenRouter."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        node.settings["last_response"] = ""
+        node.settings["last_response_status"] = "pending"
+        self._log(f"Cleared output for {node.config.display_name}")
+        self._update_inspector()
+    
+    def _update_input_variable(self, node_id: str, var_name: str, var_value: str):
+        """Actualizar una variable de entrada del Manual Trigger."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        if "input_variables" not in node.settings:
+            node.settings["input_variables"] = {}
+        
+        node.settings["input_variables"][var_name] = var_value
+        self._log(f"Updated variable '{var_name}' = '{var_value}'")
+    
+    def _add_input_variable(self, node_id: str):
+        """Agregar una nueva variable de entrada."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        if "input_variables" not in node.settings:
+            node.settings["input_variables"] = {}
+        
+        # Auto-generar nombre de variable
+        var_num = len(node.settings["input_variables"]) + 1
+        new_var = f"var_{var_num}"
+        node.settings["input_variables"][new_var] = ""
+        
+        # Refrescar inspector
+        self._update_inspector()
+        self._log(f"Added new variable: '{new_var}'")
+    
+    def _execute_workflow_from_node(self, node_id: str):
+        """Ejecutar el workflow completo desde Manual Trigger."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        self._log(f"🚀 Starting workflow execution: {node.settings.get('execution_name', 'Untitled')}")
+        
+        # Obtener modo
+        mode = node.settings.get("mode", "test")
+        self._log(f"📌 Mode: {mode.upper()}")
+        
+        # Obtener variables de entrada
+        input_vars = node.settings.get("input_variables", {})
+        if input_vars:
+            self._log(f"📥 Input Variables: {input_vars}")
+        
+        # Obtener JSON raw si existe
+        raw_json = node.settings.get("raw_json_input", "{}")
+        if raw_json and raw_json != "{}":
+            self._log(f"📋 Raw JSON Input: {raw_json}")
+        
+        # Aquí es donde se conecta con TopologicalExecutor
+        try:
+            # Crear contexto de ejecución
+            execution_context = {
+                "mode": mode,
+                "variables": input_vars,
+                "raw_input": raw_json
+            }
+            
+            # Usar TopologicalExecutor para ejecutar el flujo
+            executor = TopologicalExecutor(self.nodes, self.connections)
+            self._log("⏳ Executing workflow nodes in topological order...")
+            
+            # TODO: Implementar ejecución real
+            # results = executor.execute(execution_context)
+            
+            self._log("✅ Workflow execution completed!")
+            
+        except Exception as e:
+            self._log(f"❌ Execution error: {str(e)}")
+    
         pass
     
     def _apply_canvas_transform(self):

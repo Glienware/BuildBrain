@@ -52,6 +52,14 @@ class ManualTrigger(NodeConfig):
             display_name="Manual Trigger",
             description="Start workflow manually",
             category="TRIGGERS",
+            settings={
+                "execution_name": "Untitled Workflow",
+                "input_variables": {
+                    "param_1": "default_value"
+                },
+                "raw_json_input": "{}",
+                "mode": "test"
+            },
             output_ports={
                 "output": Port("output", DataType.JSON, "Execution context")
             }
@@ -536,11 +544,13 @@ class OpenRouterNode(NodeConfig):
             description="Call models via OpenRouter API",
             category="AI",
             settings={
-                "model": "openrouter/auto",
+                "model": "mistralai/devstral-2512:free",
                 "api_key": "",
                 "prompt": "You are helpful assistant.",
                 "temperature": 0.7,
-                "max_tokens": 2000
+                "max_tokens": 2000,
+                "last_response": "",
+                "last_response_status": "pending"
             },
             input_ports={
                 "prompt": Port("prompt", DataType.STRING, "User prompt"),
@@ -551,6 +561,14 @@ class OpenRouterNode(NodeConfig):
                 "tokens_used": Port("tokens_used", DataType.NUMBER, "Tokens used")
             }
         )
+        
+        # Modelos disponibles en OpenRouter
+        self.available_models = [
+            "mistralai/devstral-2512:free",
+            "nex-agi/deepseek-v3.1-nex-n1:free",
+            "amazon/nova-2-lite-v1:free",
+            "nvidia/nemotron-nano-12b-v2-vl:free"
+        ]
 
 
 class AgentNode(NodeConfig):
