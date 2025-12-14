@@ -532,8 +532,8 @@ class AgentWorkspace:
             
             # Actualizar solo la posición del nodo sin redibujar todo
             if hasattr(node, 'ui_control') and node.ui_control:
-                node.ui_control.left = node.position["x"]
-                node.ui_control.top = node.position["y"]
+                node.ui_control.left = node.position["x"] + self.canvas_offset_x
+                node.ui_control.top = node.position["y"] + self.canvas_offset_y
                 try:
                     node.ui_control.update()
                 except:
@@ -631,22 +631,28 @@ class AgentWorkspace:
     def _redraw_canvas(self):
         """Redibujar todo el canvas."""
         try:
-            # Limpiar completamente el canvas de nodos (mantener solo conexiones)
-            # Identificar qué controles son nodos (tienen atributo data)
-            to_remove = []
-            for i, control in enumerate(self.canvas_stack.controls):
+            # Obtener los nodos que ya están en el canvas
+            canvas_node_ids = set()
+            for control in self.canvas_stack.controls:
                 if hasattr(control, 'data'):
-                    to_remove.append(i)
+                    canvas_node_ids.add(control.data)
             
-            # Remover en orden inverso
-            for i in sorted(to_remove, reverse=True):
-                self.canvas_stack.controls.pop(i)
+            # Actualizar nodos existentes
+            for control in self.canvas_stack.controls:
+                if hasattr(control, 'data') and control.data in self.nodes:
+                    node = self.nodes[control.data]
+                    control.left = node.position["x"] + self.canvas_offset_x
+                    control.top = node.position["y"] + self.canvas_offset_y
             
-            # Agregar todos los nodos actuales al canvas
+            # Agregar nodos nuevos
             for node_id, node in self.nodes.items():
-                node_ui = self._draw_node_ui(node)
-                node_ui.data = node_id
-                self.canvas_stack.controls.append(node_ui)
+                if node_id not in canvas_node_ids:
+                    node_ui = self._draw_node_ui(node)
+                    node_ui.data = node_id
+                    node_ui.left = node.position["x"] + self.canvas_offset_x
+                    node_ui.top = node.position["y"] + self.canvas_offset_y
+                    node.ui_control = node_ui
+                    self.canvas_stack.controls.append(node_ui)
             
             # Actualizar el canvas
             if hasattr(self.canvas_stack, 'update') and self.page:
@@ -700,6 +706,14 @@ class AgentWorkspace:
         self.inspector_content.update()
         self.right_panel_container.update()
     
+    def _apply_zoom(self):
+        """Aplicar zoom a todos los nodos."""
+        pass
+    
+    def _apply_canvas_transform(self):
+        """Actualizar transformación en el canvas."""
+        pass
+    
     def _toggle_sidebar(self, e):
         """Toggle sidebar visibility."""
         self.sidebar_collapsed = not self.sidebar_collapsed
@@ -708,40 +722,59 @@ class AgentWorkspace:
         self.canvas_panel.update()
     
     def _on_canvas_scroll(self, e: ft.ScrollEvent):
-        """Manejar scroll del canvas para zoom."""
+        """Manejar scroll del canvas para pan vertical."""
         try:
-            # Por ahora desactivado - simplificar
-            pass
+            # Scroll = pan vertical
+            scroll_delta = e.scroll_delta_y if hasattr(e, 'scroll_delta_y') else 0
+            self.canvas_offset_y -= scroll_delta * 5  # Multiplicar para sensibilidad
+            self._apply_pan()
         except Exception as ex:
             print(f"DEBUG: Error en scroll: {ex}")
     
     def _on_canvas_pan_start(self, e: ft.DragStartEvent):
         """Iniciar pan del canvas."""
         try:
-            # Por ahora desactivado - simplificar
-            pass
+            # Solo pan si no estamos arrastrando un nodo
+            if self.dragging_node is None:
+                self.is_panning = True
+                self.pan_start_x = e.local_x if hasattr(e, 'local_x') else 0
+                self.pan_start_y = e.local_y if hasattr(e, 'local_y') else 0
         except Exception as ex:
             print(f"DEBUG: Error al iniciar pan: {ex}")
     
     def _on_canvas_pan_update(self, e: ft.DragUpdateEvent):
         """Actualizar pan del canvas."""
         try:
-            # Por ahora desactivado - simplificar
-            pass
+            if self.is_panning and self.dragging_node is None:
+                delta_x = e.delta_x if hasattr(e, 'delta_x') else 0
+                delta_y = e.delta_y if hasattr(e, 'delta_y') else 0
+                
+                self.canvas_offset_x += delta_x
+                self.canvas_offset_y += delta_y
+                self._apply_pan()
         except Exception as ex:
             print(f"DEBUG: Error al actualizar pan: {ex}")
     
     def _on_canvas_pan_end(self, e: ft.DragEndEvent):
         """Terminar pan del canvas."""
-        pass
+        self.is_panning = False
     
-    def _apply_canvas_transform(self):
-        """Aplicar transformación de zoom y pan a todos los nodos."""
+    def _apply_pan(self):
+        """Aplicar pan a todos los nodos."""
         try:
-            # Por ahora desactivado - simplificar
-            pass
+            # Buscar directamente en el canvas_stack por control.data == node_id
+            for node_id, node in self.nodes.items():
+                for control in self.canvas_stack.controls:
+                    if hasattr(control, 'data') and control.data == node_id:
+                        # Aplicar offset de pan
+                        control.left = node.position["x"] + self.canvas_offset_x
+                        control.top = node.position["y"] + self.canvas_offset_y
+                        break
+            
+            self._draw_connections()
+            self.canvas_stack.update()
         except Exception as ex:
-            print(f"DEBUG: Error al aplicar transformación: {ex}")
+            print(f"DEBUG: Error en pan: {ex}")
     
     
     def _update_node_setting(self, node_id: str, setting_name: str, value: Any):
@@ -833,12 +866,12 @@ class AgentWorkspace:
             source_node = self.nodes[source_node_id]
             target_node = self.nodes[target_node_id]
             
-            # Calcular posiciones de los puertos (centro del nodo)
-            source_x = source_node.position["x"] + NODE_WIDTH / 2
-            source_y = source_node.position["y"] + NODE_HEIGHT / 2
+            # Calcular posiciones de los puertos (centro del nodo) CON OFFSET
+            source_x = source_node.position["x"] + NODE_WIDTH / 2 + self.canvas_offset_x
+            source_y = source_node.position["y"] + NODE_HEIGHT / 2 + self.canvas_offset_y
             
-            target_x = target_node.position["x"] + NODE_WIDTH / 2
-            target_y = target_node.position["y"] + NODE_HEIGHT / 2
+            target_x = target_node.position["x"] + NODE_WIDTH / 2 + self.canvas_offset_x
+            target_y = target_node.position["y"] + NODE_HEIGHT / 2 + self.canvas_offset_y
             
             # Calcular distancia
             dx = target_x - source_x
