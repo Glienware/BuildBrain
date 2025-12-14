@@ -277,9 +277,24 @@ class DatabaseNode(NodeConfig):
             description="Query database (SQL)",
             category="ACTIONS",
             settings={
-                "db_type": "postgres",
-                "connection_string": "",
-                "query": "SELECT * FROM table"
+                "db_type": "mysql",
+                "host": "localhost",
+                "port": "3306",
+                "database": "",
+                "username": "",
+                "password": "",
+                "connection_status": "not_connected",
+                "operation": "SELECT",
+                "table": "",
+                "columns": "id,name",
+                "filters": {},
+                "order_by": "id ASC",
+                "limit": "10",
+                "block_raw_sql": True,
+                "sanitize_inputs": True,
+                "only_select": True,
+                "query_preview": "",
+                "last_test_result": ""
             },
             input_ports={
                 "input": Port("input", DataType.ANY, "Query params")
@@ -290,6 +305,7 @@ class DatabaseNode(NodeConfig):
                 "error": Port("error", DataType.STRING, "Error if any")
             }
         )
+        self.supported_databases = ["mysql", "postgres", "sqlite", "mariadb", "sqlserver"]
 
 
 # ============================================================================

@@ -702,6 +702,9 @@ class AgentWorkspace:
         # ESPECIAL: Interfaz completa para Manual Trigger
         if node.config.node_type == "manual_trigger":
             controls = self._build_manual_trigger_inspector(node, controls)
+        # ESPECIAL: Interfaz para Database Query
+        elif node.config.node_type == "database":
+            controls = self._build_database_inspector(node, controls)
         else:
             # Interfaz genérica para otros nodos
             controls = self._build_generic_node_inspector(node, controls)
@@ -818,6 +821,270 @@ class AgentWorkspace:
             width=200
         )
         controls.append(run_btn)
+        
+        return controls
+    
+    def _build_database_inspector(self, node, controls):
+        """Construir interfaz especializada para Database Query."""
+        # === CONNECTION SETTINGS ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Connection Settings", size=11, weight="bold", color=ACCENT_COLOR))
+        
+        # Database Type Selector
+        controls.append(ft.Text("Database Type", size=10, weight="bold", color="#cbd5f5"))
+        db_types = ["mysql", "postgres", "sqlite", "mariadb", "sqlserver"]
+        db_type_dropdown = ft.Dropdown(
+            label="Select Database",
+            options=[ft.dropdown.Option(db) for db in db_types],
+            value=node.settings.get("db_type", "mysql"),
+            on_change=lambda e: self._update_node_setting(node.node_id, "db_type", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            width=250
+        )
+        controls.append(db_type_dropdown)
+        
+        # Host
+        controls.append(ft.Text("Host", size=10, color="#cbd5f5"))
+        host_field = ft.TextField(
+            value=node.settings.get("host", "localhost"),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "host", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="localhost"
+        )
+        controls.append(host_field)
+        
+        # Port
+        controls.append(ft.Text("Port", size=10, color="#cbd5f5"))
+        port_field = ft.TextField(
+            value=node.settings.get("port", "3306"),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "port", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="3306"
+        )
+        controls.append(port_field)
+        
+        # Database Name
+        controls.append(ft.Text("Database Name", size=10, color="#cbd5f5"))
+        db_name_field = ft.TextField(
+            value=node.settings.get("database", ""),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "database", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="database_name"
+        )
+        controls.append(db_name_field)
+        
+        # Username
+        controls.append(ft.Text("Username", size=10, color="#cbd5f5"))
+        user_field = ft.TextField(
+            value=node.settings.get("username", ""),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "username", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="admin"
+        )
+        controls.append(user_field)
+        
+        # Password
+        controls.append(ft.Text("Password", size=10, color="#cbd5f5"))
+        pass_field = ft.TextField(
+            value=node.settings.get("password", ""),
+            password=True,
+            on_blur=lambda e: self._update_node_setting(node.node_id, "password", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="••••••••"
+        )
+        controls.append(pass_field)
+        
+        # Test Connection Button
+        test_db_btn = ft.ElevatedButton(
+            "🔗 Test Connection",
+            icon=ft.Icons.VERIFIED,
+            on_click=lambda e: self._test_database_connection(node.node_id),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                bgcolor=ACCENT_COLOR,
+                color="#010409"
+            ),
+            width=200
+        )
+        controls.append(test_db_btn)
+        
+        # Connection Status
+        conn_status = node.settings.get("connection_status", "not_connected")
+        if conn_status == "connected":
+            status_color = "#10b981"
+            status_icon = "✅"
+        else:
+            status_color = "#ef4444"
+            status_icon = "❌"
+        
+        status_row = ft.Row([
+            ft.Icon(ft.Icons.CIRCLE, size=12, color=status_color),
+            ft.Text(f"Status: {conn_status.upper()}", size=9, color=status_color, weight="bold")
+        ], spacing=6)
+        controls.append(status_row)
+        
+        # === QUERY CONFIGURATION ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Query Configuration", size=11, weight="bold", color=ACCENT_COLOR))
+        
+        # Operation Type
+        controls.append(ft.Text("Operation", size=10, color="#cbd5f5"))
+        operations = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+        op_dropdown = ft.Dropdown(
+            label="Select Operation",
+            options=[ft.dropdown.Option(op) for op in operations],
+            value=node.settings.get("operation", "SELECT"),
+            on_change=lambda e: self._update_node_setting(node.node_id, "operation", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            width=250
+        )
+        controls.append(op_dropdown)
+        
+        # Table Name
+        controls.append(ft.Text("Table", size=10, color="#cbd5f5"))
+        table_field = ft.TextField(
+            value=node.settings.get("table", ""),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "table", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="{{table}}"
+        )
+        controls.append(table_field)
+        
+        # Columns
+        controls.append(ft.Text("Columns", size=10, color="#cbd5f5"))
+        cols_field = ft.TextField(
+            value=node.settings.get("columns", "id,name"),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "columns", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="id,nombre,email"
+        )
+        controls.append(cols_field)
+        
+        # Order By
+        controls.append(ft.Text("Order By", size=10, color="#cbd5f5"))
+        order_field = ft.TextField(
+            value=node.settings.get("order_by", "id ASC"),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "order_by", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="id ASC"
+        )
+        controls.append(order_field)
+        
+        # Limit
+        controls.append(ft.Text("Limit", size=10, color="#cbd5f5"))
+        limit_field = ft.TextField(
+            value=node.settings.get("limit", "10"),
+            on_blur=lambda e: self._update_node_setting(node.node_id, "limit", e.control.value),
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#f8fafc",
+            filled=True,
+            hint_text="{{limit}}"
+        )
+        controls.append(limit_field)
+        
+        # === SECURITY ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Security", size=11, weight="bold", color=ACCENT_COLOR))
+        
+        block_raw_sql = ft.Checkbox(
+            label="Block raw SQL",
+            value=node.settings.get("block_raw_sql", True),
+            on_change=lambda e: self._update_node_setting(node.node_id, "block_raw_sql", e.control.value)
+        )
+        controls.append(block_raw_sql)
+        
+        sanitize_inputs = ft.Checkbox(
+            label="Sanitize inputs",
+            value=node.settings.get("sanitize_inputs", True),
+            on_change=lambda e: self._update_node_setting(node.node_id, "sanitize_inputs", e.control.value)
+        )
+        controls.append(sanitize_inputs)
+        
+        only_select = ft.Checkbox(
+            label="Only SELECT",
+            value=node.settings.get("only_select", True),
+            on_change=lambda e: self._update_node_setting(node.node_id, "only_select", e.control.value)
+        )
+        controls.append(only_select)
+        
+        # === QUERY PREVIEW ===
+        controls.append(ft.Divider(thickness=1, color="#1f2937"))
+        controls.append(ft.Text("Query Preview", size=11, weight="bold", color=ACCENT_COLOR))
+        
+        query_preview = node.settings.get("query_preview", "SELECT * FROM {{table}} LIMIT {{limit}}")
+        preview_area = ft.TextField(
+            value=query_preview,
+            multiline=True,
+            read_only=True,
+            min_lines=5,
+            bgcolor="#05070a",
+            border_color="#1f2937",
+            color="#cbd5f5",
+            filled=True
+        )
+        controls.append(preview_area)
+        
+        # Test Query Button
+        test_query_btn = ft.ElevatedButton(
+            "▶ Test Query",
+            icon=ft.Icons.PLAY_ARROW,
+            on_click=lambda e: self._test_database_query(node.node_id),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                bgcolor="#40C4FF",
+                color="#010409"
+            ),
+            width=200
+        )
+        controls.append(test_query_btn)
+        
+        # Test Result
+        test_result = node.settings.get("last_test_result", "")
+        if test_result:
+            controls.append(ft.Divider(thickness=1, color="#1f2937"))
+            controls.append(ft.Text("Test Result", size=10, weight="bold", color=ACCENT_COLOR))
+            result_area = ft.TextField(
+                value=test_result,
+                multiline=True,
+                read_only=True,
+                min_lines=3,
+                bgcolor="#05070a",
+                border_color="#1f2937",
+                color="#cbd5f5",
+                filled=True
+            )
+            controls.append(result_area)
         
         return controls
     
@@ -1393,6 +1660,269 @@ class AgentWorkspace:
             self._log(f"✓ Saved: {filename}")
         except Exception as ex:
             self._log(f"❌ Save error: {str(ex)}")
+    
+    def _test_database_connection(self, node_id: str):
+        """Testear la conexión a la base de datos."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        
+        # Validar que los campos requeridos no estén vacíos
+        required_fields = ["host", "port", "username"]
+        missing_fields = [f for f in required_fields if not node.settings.get(f, "").strip()]
+        
+        if missing_fields:
+            self._log(f"❌ Missing required fields: {', '.join(missing_fields)}")
+            node.settings["connection_status"] = "not_connected"
+            self._update_inspector()
+            return
+        
+        db_type = node.settings.get("db_type", "mysql")
+        host = node.settings.get("host", "").strip()
+        port = node.settings.get("port", "3306").strip()
+        username = node.settings.get("username", "").strip()
+        password = node.settings.get("password", "").strip()
+        database = node.settings.get("database", "").strip()
+        
+        self._log(f"🔄 Testing {db_type} connection to {host}:{port} as {username}...")
+        
+        try:
+            if db_type in ["mysql", "mariadb"]:
+                import mysql.connector
+                from mysql.connector import Error
+                
+                try:
+                    # Primero validar credenciales sin BD
+                    conn = mysql.connector.connect(
+                        host=host,
+                        port=int(port),
+                        user=username,
+                        password=password,
+                        autocommit=True,
+                        connection_timeout=5
+                    )
+                    
+                    self._log(f"✅ Credentials OK for {username}@{host}")
+                    
+                    # Intentar usar la BD si está especificada
+                    if database:
+                        try:
+                            cursor = conn.cursor()
+                            cursor.execute(f"USE `{database}`")
+                            cursor.close()
+                            node.settings["connection_status"] = "connected"
+                            self._log(f"✅ Successfully connected to database '{database}'")
+                        except Error as db_error:
+                            if "1049" in str(db_error):
+                                self._log(f"⚠️ Database '{database}' does not exist (credentials OK)")
+                            else:
+                                self._log(f"⚠️ Cannot access database '{database}': {str(db_error)}")
+                            node.settings["connection_status"] = "connected"  # Credenciales OK
+                    else:
+                        node.settings["connection_status"] = "connected"
+                        self._log(f"✅ Credentials verified (no database specified)")
+                    
+                    conn.close()
+                    
+                except Error as err:
+                    if err.errno == 1045:
+                        self._log(f"❌ Authentication FAILED: Check username and password")
+                        self._log(f"   Trying to connect as: {username}")
+                        if not password:
+                            self._log(f"   ⚠️ No password entered - check if authentication is required")
+                    elif err.errno == 2003:
+                        self._log(f"❌ Cannot reach host '{host}:{port}' - check host and port")
+                    else:
+                        self._log(f"❌ Error ({err.errno}): {err.msg}")
+                    node.settings["connection_status"] = "not_connected"
+            
+            elif db_type == "postgres":
+                import psycopg2
+                
+                try:
+                    # Conectar a la BD 'postgres' (siempre existe)
+                    conn = psycopg2.connect(
+                        host=host,
+                        port=int(port),
+                        user=username,
+                        password=password,
+                        dbname="postgres",
+                        connect_timeout=5
+                    )
+                    
+                    self._log(f"✅ Credentials OK for {username}@{host}")
+                    conn.close()
+                    
+                    # Intentar conectar a la BD especificada
+                    if database and database != "postgres":
+                        try:
+                            conn = psycopg2.connect(
+                                host=host,
+                                port=int(port),
+                                user=username,
+                                password=password,
+                                dbname=database,
+                                connect_timeout=5
+                            )
+                            node.settings["connection_status"] = "connected"
+                            self._log(f"✅ Successfully connected to database '{database}'")
+                            conn.close()
+                        except psycopg2.Error as db_error:
+                            self._log(f"⚠️ Cannot access database '{database}'")
+                            node.settings["connection_status"] = "connected"  # Credenciales OK
+                    else:
+                        node.settings["connection_status"] = "connected"
+                        self._log(f"✅ Credentials verified")
+                
+                except psycopg2.OperationalError as oe:
+                    if "password authentication failed" in str(oe):
+                        self._log(f"❌ Authentication FAILED: Check username and password")
+                        self._log(f"   Trying to connect as: {username}")
+                    elif "could not connect" in str(oe) or "could not translate host name" in str(oe):
+                        self._log(f"❌ Cannot reach host '{host}:{port}'")
+                    else:
+                        self._log(f"❌ Connection error: {str(oe)}")
+                    node.settings["connection_status"] = "not_connected"
+            
+            elif db_type == "sqlite":
+                import sqlite3
+                try:
+                    if not database:
+                        database = ":memory:"
+                    conn = sqlite3.connect(database)
+                    conn.close()
+                    node.settings["connection_status"] = "connected"
+                    self._log(f"✅ SQLite connection OK")
+                except Exception as e:
+                    self._log(f"❌ SQLite error: {str(e)}")
+                    node.settings["connection_status"] = "not_connected"
+            
+            else:
+                node.settings["connection_status"] = "not_connected"
+                self._log(f"⚠️ Database type '{db_type}' not supported")
+        
+        except Exception as ex:
+            node.settings["connection_status"] = "not_connected"
+            self._log(f"❌ Unexpected error: {str(ex)}")
+        
+        self._update_inspector()
+    
+    def _test_database_query(self, node_id: str):
+        """Ejecutar query de prueba en la base de datos."""
+        if node_id not in self.nodes:
+            return
+        
+        node = self.nodes[node_id]
+        
+        # Verificar que la conexión está establecida
+        if node.settings.get("connection_status") != "connected":
+            self._log("❌ Database not connected. Test connection first.")
+            return
+        
+        try:
+            self._log("🔄 Executing test query...")
+            
+            db_type = node.settings.get("db_type", "mysql")
+            host = node.settings.get("host", "")
+            port = int(node.settings.get("port", "3306"))
+            database = node.settings.get("database", "")
+            username = node.settings.get("username", "")
+            password = node.settings.get("password", "")
+            
+            # Construir query
+            operation = node.settings.get("operation", "SELECT")
+            table = node.settings.get("table", "")
+            columns = node.settings.get("columns", "*")
+            order_by = node.settings.get("order_by", "")
+            limit = node.settings.get("limit", "10")
+            
+            if not table:
+                self._log("❌ Table name is required")
+                return
+            
+            query = f"{operation} {columns} FROM {table}"
+            if order_by and operation == "SELECT":
+                query += f" ORDER BY {order_by}"
+            if limit and operation == "SELECT":
+                query += f" LIMIT {limit}"
+            
+            # Guardar preview
+            node.settings["query_preview"] = query
+            
+            # Ejecutar query según el tipo de BD
+            if db_type in ["mysql", "mariadb"]:
+                import mysql.connector
+                conn = mysql.connector.connect(
+                    host=host,
+                    port=port,
+                    user=username,
+                    password=password,
+                    database=database
+                )
+                cursor = conn.cursor()
+                cursor.execute(query)
+                
+                if operation == "SELECT":
+                    results = cursor.fetchall()
+                    node.settings["last_test_result"] = f"✅ Query successful. {len(results)} rows returned."
+                    self._log(f"✅ Query successful. {len(results)} rows returned.")
+                else:
+                    node.settings["last_test_result"] = f"✅ Query executed. {cursor.rowcount} rows affected."
+                    self._log(f"✅ Query executed. {cursor.rowcount} rows affected.")
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+            
+            elif db_type == "postgres":
+                import psycopg2
+                conn = psycopg2.connect(
+                    host=host,
+                    port=port,
+                    database=database,
+                    user=username,
+                    password=password
+                )
+                cursor = conn.cursor()
+                cursor.execute(query)
+                
+                if operation == "SELECT":
+                    results = cursor.fetchall()
+                    node.settings["last_test_result"] = f"✅ Query successful. {len(results)} rows returned."
+                    self._log(f"✅ Query successful. {len(results)} rows returned.")
+                else:
+                    node.settings["last_test_result"] = f"✅ Query executed. {cursor.rowcount} rows affected."
+                    self._log(f"✅ Query executed. {cursor.rowcount} rows affected.")
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+            
+            elif db_type == "sqlite":
+                import sqlite3
+                conn = sqlite3.connect(database)
+                cursor = conn.cursor()
+                cursor.execute(query)
+                
+                if operation == "SELECT":
+                    results = cursor.fetchall()
+                    node.settings["last_test_result"] = f"✅ Query successful. {len(results)} rows returned."
+                    self._log(f"✅ Query successful. {len(results)} rows returned.")
+                else:
+                    node.settings["last_test_result"] = f"✅ Query executed. {cursor.rowcount} rows affected."
+                    self._log(f"✅ Query executed. {cursor.rowcount} rows affected.")
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+        
+        except Exception as ex:
+            error_msg = f"❌ Query error: {str(ex)}"
+            node.settings["last_test_result"] = error_msg
+            self._log(error_msg)
+        
+        self._update_inspector()
     
     def _log(self, message: str):
         """Agregar mensaje al log."""
