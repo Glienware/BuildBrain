@@ -49,16 +49,17 @@ class Connection:
     
     def is_valid(self) -> bool:
         """Valida que la conexión sea válida."""
-        # Output → Input
+        return self.validation_error() is None
+
+    def validation_error(self) -> Optional[str]:
+        """Retorna mensaje si la conexión no es válida."""
         if self.source.port_type != "output" or self.target.port_type != "input":
-            return False
-        # Los tipos deben ser compatibles
+            return "Las salidas deben conectarse únicamente a entradas."
         if self.source.data_type != self.target.data_type:
-            return False
-        # No conectar un nodo consigo mismo
+            return "El tipo de dato del puerto de salida no coincide con el de la entrada."
         if self.source.node_id == self.target.node_id:
-            return False
-        return True
+            return "No puedes conectar un nodo consigo mismo."
+        return None
 
 
 @dataclass
@@ -226,6 +227,10 @@ class NodeCanvas:
     def connect(self, source_port: NodePort, target_port: NodePort) -> bool:
         """Conecta dos puertos."""
         return self.connection_manager.connect(source_port, target_port)
+
+    def get_last_connection_error(self) -> str:
+        """Devuelve la última razón de fallo al conectar."""
+        return self.connection_manager.last_error
     
     def disconnect(self, connection_id: str) -> bool:
         """Desconecta una conexión."""
@@ -269,29 +274,36 @@ class ConnectionManager:
     
     def __init__(self, canvas: NodeCanvas):
         self.canvas = canvas
+        self.last_error: str = ""
     
     def connect(self, source_port: NodePort, target_port: NodePort) -> bool:
         """
         Conecta dos puertos con validación.
         Retorna True si la conexión fue exitosa.
         """
+        self.last_error = ""
         connection = Connection(source_port, target_port)
         
-        if not connection.is_valid():
+        validation_error = connection.validation_error()
+        if validation_error:
+            self.last_error = validation_error
             return False
         
         # Evitar conexiones duplicadas
         for existing in self.canvas.connections:
             if (existing.source == source_port and existing.target == target_port):
+                self.last_error = "Esa conexión ya existe."
                 return False
         
         # Evitar ciclos (no soportamos ciclos en DAG)
         if self._would_create_cycle(connection):
+            self.last_error = "Esa conexión generaría un ciclo en el flujo."
             return False
         
         self.canvas.connections.append(connection)
         source_port.is_connected = True
         target_port.is_connected = True
+        self.last_error = ""
         return True
     
     def _would_create_cycle(self, connection: Connection) -> bool:

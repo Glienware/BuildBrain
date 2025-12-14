@@ -4,7 +4,7 @@ Implementa un canvas interactivo para diseñar flujos visuales con drag & drop.
 """
 
 import flet as ft
-from typing import Optional, Callable, Dict, Any, List
+from typing import Optional, Callable, Dict, Any, List, Tuple
 from dataclasses import dataclass
 from ..nodes.base import BaseNode, NodeCanvas, Connection, NodePort, NodeState
 from ..nodes.types import NodeFactory
@@ -64,23 +64,8 @@ class NodeVisual(ft.Container):
         icon = icon_map.get(self.node.NODE_TYPE, ft.Icons.SETTINGS)
         
         port_size = 12
-        input_port = ft.Container(
-            width=port_size,
-            height=port_size,
-            border_radius=ft.border_radius.all(port_size / 2),
-            bgcolor="#4CAF50" if self.node.input_ports else "#555",
-            border=ft.border.all(2, "#fff"),
-            on_click=self._on_input_port_click,
-        ) if self.node.input_ports else ft.Container(width=port_size, height=port_size)
-
-        output_port = ft.Container(
-            width=port_size,
-            height=port_size,
-            border_radius=ft.border_radius.all(port_size / 2),
-            bgcolor="#FF9800" if self.node.output_ports else "#555",
-            border=ft.border.all(2, "#fff"),
-            on_click=self._on_output_port_click,
-        ) if self.node.output_ports else ft.Container(width=port_size, height=port_size)
+        input_controls = self._build_port_controls(self.node.input_ports, "input", port_size)
+        output_controls = self._build_port_controls(self.node.output_ports, "output", port_size)
 
         content_body = ft.Column(
             spacing=4,
@@ -103,11 +88,9 @@ class NodeVisual(ft.Container):
                     width=20,
                     height=100,
                     content=ft.Column(
-                        spacing=0,
-                        controls=[
-                            ft.Container(height=40),
-                            input_port,
-                        ]
+                        spacing=8,
+                        controls=input_controls,
+                        alignment=ft.MainAxisAlignment.START,
                     ),
                     alignment=ft.alignment.top_center,
                 ),
@@ -120,16 +103,34 @@ class NodeVisual(ft.Container):
                     width=20,
                     height=100,
                     content=ft.Column(
-                        spacing=0,
-                        controls=[
-                            ft.Container(height=40),
-                            output_port,
-                        ]
+                        spacing=8,
+                        controls=output_controls,
+                        alignment=ft.MainAxisAlignment.START,
                     ),
                     alignment=ft.alignment.top_center,
                 ),
             ]
         )
+
+    def _build_port_controls(self, ports: Dict[str, NodePort], port_type: str, size: int) -> List[ft.Control]:
+        controls: List[ft.Control] = []
+        if not ports:
+            controls.append(ft.Container(width=size, height=size))
+            return controls
+
+        color = "#4CAF50" if port_type == "input" else "#FF9800"
+
+        for port_name in ports:
+            controls.append(ft.Container(
+                width=size,
+                height=size,
+                border_radius=ft.border_radius.all(size / 2),
+                bgcolor=color,
+                border=ft.border.all(2, "#fff"),
+                tooltip=port_name,
+                on_click=lambda e, pt=port_type, pn=port_name: self._on_port_click(pt, pn),
+            ))
+        return controls
     
     def _update_appearance(self):
         """Actualiza colores según estado."""
@@ -165,13 +166,9 @@ class NodeVisual(ft.Container):
         """Clic para seleccionar."""
         self.on_select(self.node.node_id)
     
-    def _on_input_port_click(self, e):
+    def _on_port_click(self, port_type: str, port_name: str):
         if self.on_port_click:
-            self.on_port_click(self.node.node_id, "input")
-
-    def _on_output_port_click(self, e):
-        if self.on_port_click:
-            self.on_port_click(self.node.node_id, "output")
+            self.on_port_click(self.node.node_id, port_type, port_name)
 
     def set_selected(self, selected: bool):
         """Marca el nodo como seleccionado."""
@@ -192,7 +189,7 @@ class CanvasView(ft.GestureDetector):
         self.drag_offset = Vector2(0, 0)
         
         # Para conexiones
-        self.connecting_from: Optional[str] = None
+        self.connecting_from: Optional[Tuple[str, str]] = None
         self.connection_lines: Dict[str, List[ft.Container]] = {}
 
         # Layers para conexiones y nodos
@@ -408,11 +405,11 @@ class CanvasView(ft.GestureDetector):
 
         return segments
 
-    def _on_port_click(self, node_id: str, port_type: str):
+    def _on_port_click(self, node_id: str, port_type: str, port_name: str):
         """Maneja conexiones en orden naranja (salida) → verde (entrada)."""
         if port_type == "output":
-            self.connecting_from = node_id
-            print(f"📍 Salida {node_id[:6]} seleccionada")
+            self.connecting_from = (node_id, port_name)
+            print(f"📍 Salida {node_id[:6]}:{port_name} seleccionada")
             print("👉 Ahora toca hacer clic en una entrada verde")
             return
 
@@ -424,26 +421,27 @@ class CanvasView(ft.GestureDetector):
             print("⚠️ Selecciona primero una salida naranja")
             return
 
-        if self.connecting_from == node_id:
+        if self.connecting_from[0] == node_id:
             print("❌ Selecciona otra entrada distinta al mismo nodo")
             self.connecting_from = None
             return
 
-        source_node = self.canvas.nodes.get(self.connecting_from)
+        source_node = self.canvas.nodes.get(self.connecting_from[0])
         target_node = self.canvas.nodes.get(node_id)
         if not source_node or not target_node:
             self.connecting_from = None
             return
 
-        source_port = next(iter(source_node.output_ports.values()), None)
-        target_port = next(iter(target_node.input_ports.values()), None)
+        source_port = source_node.output_ports.get(self.connecting_from[1])
+        target_port = target_node.input_ports.get(port_name)
         if source_port and target_port and self.canvas.connect(source_port, target_port):
             print(f"✓ Conectado {self.connecting_from[:6]} → {node_id[:6]}")
             self._draw_connections()
             if self.page:
                 self.update()
         else:
-            print("❌ No se pudo crear la conexión")
+            reason = self.canvas.get_last_connection_error() if self.canvas else ""
+            print(f"❌ {reason or 'No se pudo crear la conexión'}")
 
         self.connecting_from = None
 
