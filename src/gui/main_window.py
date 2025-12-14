@@ -13,6 +13,7 @@ from typing import Optional, Callable, List, Dict, Any
 from ..core.project_config import ProjectConfig
 from ..core.dataset_manager import DatasetManager
 from ..core.pytorch_trainer import PyTorchTrainer
+from .nodes_panel import NodesPanel
 
 
 class AndroidStyleMainWindow:
@@ -268,6 +269,11 @@ class AndroidStyleMainWindow:
                     text="Entrenamiento",
                     icon=ft.Icons.PLAY_ARROW,
                     content=self._create_training_tab()
+                ),
+                ft.Tab(
+                    text="Nodos",
+                    icon=ft.Icons.EXTENSION,
+                    content=NodesPanel()
                 ),
                 ft.Tab(
                     text="Test",

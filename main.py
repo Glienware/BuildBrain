@@ -115,14 +115,20 @@ class AppController:
 
     def on_open_project(self, project_data):
         """Handle opening existing project."""
-        # Use the path directly if available, otherwise construct it from project name
-        if 'path' in project_data:
-            project_path = project_data['path']
-        else:
-            project_name = project_data.get("project_name", "unknown_project")
-            project_path = os.path.join(self.projects_dir, project_name)
-        
-        self.show_main_window(project_path)
+        try:
+            # Use the path directly if available, otherwise construct it from project name
+            if 'path' in project_data:
+                project_path = project_data['path']
+            else:
+                project_name = project_data.get("project_name", "unknown_project")
+                project_path = os.path.join(self.projects_dir, project_name)
+            
+            print(f"DEBUG: Opening project from path: {project_path}")
+            self.show_main_window(project_path)
+        except Exception as e:
+            print(f"ERROR in on_open_project: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
 
 def main(page: ft.Page):
