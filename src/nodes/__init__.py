@@ -1,27 +1,38 @@
 """
-Módulo de nodos visuales para flujos de machine learning.
-Soporta creación, entrenamiento y prueba de modelos mediante interfaces visuales de nodos.
+Módulo de nodos visuales para flujos de machine learning y automation.
+Soporta creación, configuración y ejecución de workflows n8n-style.
 """
 
-from .base import BaseNode, NodePort, NodeCanvas, ConnectionManager, NodeState
-from .types import DatasetNode, ModelNode, TrainingNode, TestNode, OutputNode, NodeFactory
-from .executor import FlowExecutor, TopologicalExecutor
-from .serializer import FlowSerializer, FlowLoader
+from .automation_nodes import (
+    NodeConfig,
+    Port,
+    DataType,
+    NODE_REGISTRY,
+    create_node_config,
+    get_all_nodes_by_category
+)
+from .executor import (
+    TopologicalExecutor,
+    ExecutionContext,
+    ExecutionState,
+    ExecutionNodeState,
+    FlowValidator
+)
+from .serializer import FlowSerializer, FlowPersistence, FlowDefinition
 
 __all__ = [
-    "BaseNode",
-    "NodePort",
-    "NodeCanvas",
-    "ConnectionManager",
-    "NodeState",
-    "DatasetNode",
-    "ModelNode",
-    "TrainingNode",
-    "TestNode",
-    "OutputNode",
-    "NodeFactory",
-    "FlowExecutor",
+    "NodeConfig",
+    "Port",
+    "DataType",
+    "NODE_REGISTRY",
+    "create_node_config",
+    "get_all_nodes_by_category",
     "TopologicalExecutor",
+    "ExecutionContext",
+    "ExecutionState",
+    "ExecutionNodeState",
+    "FlowValidator",
     "FlowSerializer",
-    "FlowLoader",
+    "FlowPersistence",
+    "FlowDefinition"
 ]

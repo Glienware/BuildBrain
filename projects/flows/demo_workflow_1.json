@@ -1,0 +1,137 @@
+{
+  "id": "demo_workflow_1",
+  "name": "Demo Workflow",
+  "description": "Automation flow: Demo Workflow",
+  "version": "1.0",
+  "created_at": "2025-12-14T03:32:49.938810",
+  "updated_at": "2025-12-14T03:32:49.938738",
+  "nodes": {
+    "trigger_1": {
+      "id": "trigger_1",
+      "type": "manual_trigger",
+      "display_name": "Manual Trigger",
+      "category": "TRIGGERS",
+      "position": {
+        "x": 50,
+        "y": 100
+      },
+      "settings": {},
+      "input_ports": {},
+      "output_ports": {
+        "output": {
+          "name": "output",
+          "data_type": "json",
+          "description": "Execution context"
+        }
+      },
+      "data": {}
+    },
+    "llm_1": {
+      "id": "llm_1",
+      "type": "llm",
+      "display_name": "LLM / Agent",
+      "category": "AI",
+      "position": {
+        "x": 300,
+        "y": 100
+      },
+      "settings": {
+        "model": "claude",
+        "prompt": "Answer the following question:\n{{input}}",
+        "temperature": 0.7,
+        "max_tokens": 1000
+      },
+      "input_ports": {
+        "input": {
+          "name": "input",
+          "data_type": "string",
+          "description": "Input prompt or data",
+          "required": true,
+          "default_value": null
+        },
+        "context": {
+          "name": "context",
+          "data_type": "json",
+          "description": "Additional context",
+          "required": true,
+          "default_value": null
+        }
+      },
+      "output_ports": {
+        "response": {
+          "name": "response",
+          "data_type": "string",
+          "description": "LLM response"
+        },
+        "parsed": {
+          "name": "parsed",
+          "data_type": "json",
+          "description": "Parsed JSON response"
+        },
+        "metadata": {
+          "name": "metadata",
+          "data_type": "json",
+          "description": "Response metadata"
+        }
+      },
+      "data": {}
+    },
+    "log_1": {
+      "id": "log_1",
+      "type": "log",
+      "display_name": "Log",
+      "category": "ACTIONS",
+      "position": {
+        "x": 550,
+        "y": 100
+      },
+      "settings": {},
+      "input_ports": {
+        "message": {
+          "name": "message",
+          "data_type": "any",
+          "description": "Message to log",
+          "required": true,
+          "default_value": null
+        },
+        "level": {
+          "name": "level",
+          "data_type": "string",
+          "description": "Log level (info/warn/error)",
+          "required": true,
+          "default_value": null
+        }
+      },
+      "output_ports": {
+        "success": {
+          "name": "success",
+          "data_type": "boolean",
+          "description": "Logged successfully"
+        }
+      },
+      "data": {}
+    }
+  },
+  "connections": [
+    {
+      "id": "conn_1",
+      "source_node": "trigger_1",
+      "source_port": "output",
+      "target_node": "llm_1",
+      "target_port": "input"
+    },
+    {
+      "id": "conn_2",
+      "source_node": "llm_1",
+      "source_port": "response",
+      "target_node": "log_1",
+      "target_port": "message"
+    }
+  ],
+  "variables": {
+    "test_var": "value"
+  },
+  "settings": {
+    "auto_execute": false
+  }
+}

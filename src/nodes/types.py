@@ -433,13 +433,9 @@ class NodeFactory:
     @classmethod
     def create_node(cls, node_type: str, **kwargs) -> Optional[BaseNode]:
         """Crea una instancia de nodo del tipo especificado."""
-        node_class = cls._NODE_REGISTRY.get(node_type)
-        if node_class:
-            init_kwargs = dict(kwargs)
-            dataset_path = init_kwargs.pop("dataset_path", None)
-            if node_type == "dataset" and dataset_path is not None:
-                init_kwargs["dataset_path"] = dataset_path
-            return node_class(**init_kwargs)
+        # Node creation is intentionally disabled/neutralized.
+        # Returning None prevents accidental construction or execution
+        # of nodes while the workspace automation logic is being redesigned.
         return None
     
     @classmethod
