@@ -191,8 +191,8 @@ class LLMNode(NodeConfig):
                 "max_tokens": 1000
             },
             input_ports={
-                "input": Port("input", DataType.STRING, "Input prompt or data"),
-                "context": Port("context", DataType.JSON, "Additional context")
+                "input": Port("input", DataType.ANY, "Input prompt or data"),
+                "context": Port("context", DataType.ANY, "Additional context")
             },
             output_ports={
                 "response": Port("response", DataType.STRING, "LLM response"),
@@ -595,8 +595,8 @@ class OpenRouterNode(NodeConfig):
                 "last_response_status": "pending"
             },
             input_ports={
-                "prompt": Port("prompt", DataType.STRING, "User prompt"),
-                "context": Port("context", DataType.JSON, "Context/system info")
+                "prompt": Port("prompt", DataType.ANY, "User prompt"),
+                "context": Port("context", DataType.ANY, "Context/system info")
             },
             output_ports={
                 "response": Port("response", DataType.STRING, "Model response"),
@@ -626,8 +626,8 @@ class AgentNode(NodeConfig):
                 "tools": []
             },
             input_ports={
-                "goal": Port("goal", DataType.STRING, "Task to accomplish"),
-                "tools": Port("tools", DataType.ARRAY, "Available tools")
+                "goal": Port("goal", DataType.ANY, "Task to accomplish"),
+                "tools": Port("tools", DataType.ANY, "Available tools")
             },
             output_ports={
                 "result": Port("result", DataType.JSON, "Agent result"),
@@ -665,7 +665,7 @@ class VectorStoreExtendedNode(NodeConfig):
             settings={"db": "pinecone", "index": "default"},
             input_ports={
                 "texts": Port("texts", DataType.ARRAY, "Texts to embed"),
-                "query": Port("query", DataType.STRING, "Search query")
+                "query": Port("query", DataType.ANY, "Search query")
             },
             output_ports={
                 "results": Port("results", DataType.ARRAY, "Search results"),

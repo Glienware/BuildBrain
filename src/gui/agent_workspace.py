@@ -1831,9 +1831,11 @@ class AgentWorkspace:
             self._log("🔍 Validating workflow...")
             
             # Convertir nodos y conexiones al formato esperado
-            nodes_dict = {node.node_id: node.config for node_id, node in self.nodes.items()}
-            connections_list = []
+            nodes_dict = {}
+            for node_id_key, node_inst in self.nodes.items():
+                nodes_dict[node_id_key] = node_inst.config
             
+            connections_list = []
             for conn_id, conn in self.connections.items():
                 connections_list.append({
                     "source_node": conn.source_node,
@@ -1842,7 +1844,7 @@ class AgentWorkspace:
                     "target_port": conn.target_port
                 })
             
-            # Validar flujo
+            # Validar flujo - llamar como método estático correctamente
             is_valid, validation_msg = FlowValidator.validate(nodes_dict, connections_list)
             
             if not is_valid:
@@ -1875,10 +1877,17 @@ class AgentWorkspace:
             # 3. EJECUTAR CON TOPOLOGICAL EXECUTOR
             self._log("⏳ Executing workflow nodes in topological order...")
             
-            executor = TopologicalExecutor(self.nodes, self.connections)
+            # Crear executor sin argumentos
+            executor = TopologicalExecutor()
             
-            # Ejecutar y capturar resultados
-            execution_context["_executor"] = executor
+            # Ejecutar validación del flujo en el executor
+            success, order = executor._topological_sort(nodes_dict, connections_list)
+            
+            if not success:
+                self._log("❌ Workflow contains cycles or invalid structure")
+                return
+            
+            self._log(f"📊 Execution order: {' → '.join([self.nodes[nid].config.display_name for nid in order if nid in self.nodes])}")
             
             # Log de nodos conectados
             node_count = len(self.nodes)
@@ -1916,7 +1925,7 @@ class AgentWorkspace:
         except Exception as e:
             self._log(f"❌ Execution error: {str(e)}")
             import traceback
-            self._log(f"📍 Traceback: {traceback.format_exc()[:200]}")
+            self._log(f"📍 Error details: {str(e)}")
     
     def _apply_canvas_transform(self):
         """Actualizar transformación en el canvas."""
