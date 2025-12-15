@@ -162,8 +162,9 @@ class AgentWorkspace:
             ft.Container(expand=True),
             ft.Row([
                 ft.ElevatedButton("Add Node", icon=ft.Icons.ADD, on_click=self._open_node_palette, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=12))),
+                ft.ElevatedButton("Load Agent", icon=ft.Icons.UPLOAD_FILE, on_click=self._load_workflow, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=12))),
                 ft.ElevatedButton("Execute", on_click=self._execute_workflow, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=12), bgcolor=ACCENT_COLOR, color="#010409")),
-                ft.ElevatedButton("Save", icon=ft.Icons.SAVE_ALT, on_click=self._save_workflow, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=12)))
+                ft.ElevatedButton("Save Agent", icon=ft.Icons.SAVE_ALT, on_click=self._save_workflow, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=12)))
             ], spacing=8)
         ], alignment=ft.MainAxisAlignment.CENTER, spacing=16)
 
@@ -555,35 +556,49 @@ class AgentWorkspace:
         def _on_node_drag(e: ft.DragUpdateEvent):
             if self.dragging_node != node.node_id:
                 return
-            node.position["x"] += e.delta_x
-            node.position["y"] += e.delta_y
-            self._clamp_node_in_bounds(node)
             
-            # Actualizar solo la posición del nodo sin redibujar todo
-            if hasattr(node, 'ui_control') and node.ui_control:
-                node.ui_control.left = node.position["x"] + self.canvas_offset_x
-                node.ui_control.top = node.position["y"] + self.canvas_offset_y
-                try:
-                    node.ui_control.update()
-                except:
-                    pass
-            
-            # Redibujar conexiones CON THROTTLE (solo cada 50ms)
-            import time
-            current_time = time.time()
-            if current_time - self.last_connection_draw > self.connection_draw_throttle:
-                self._draw_connections()
-                self.last_connection_draw = current_time
+            try:
+                node.position["x"] += e.delta_x
+                node.position["y"] += e.delta_y
+                self._clamp_node_in_bounds(node)
+                
+                # Actualizar solo la posición del nodo sin redibujar todo
+                if hasattr(node, 'ui_control') and node.ui_control:
+                    node.ui_control.left = node.position["x"] + self.canvas_offset_x
+                    node.ui_control.top = node.position["y"] + self.canvas_offset_y
+                    try:
+                        node.ui_control.update()
+                    except:
+                        pass
+                
+                # Redibujar conexiones CON THROTTLE MUY FUERTE (300ms) para evitar freeze
+                import time
+                current_time = time.time()
+                if current_time - self.last_connection_draw > 0.3:  # 300ms throttle
+                    try:
+                        self._draw_connections()
+                        self.last_connection_draw = current_time
+                    except Exception as draw_err:
+                        print(f"DEBUG: Error al redibujar conexiones: {draw_err}")
+            except Exception as drag_err:
+                print(f"DEBUG: Error en drag: {drag_err}")
 
         def _on_node_drag_end(e):
             self.dragging_node = None
-            # Redibuja conexiones al final para asegurar que estén correctas
-            self._draw_connections()
+            # Redibuja conexiones al final para asegurar que estén correctas - CON PROTECCIÓN
+            try:
+                self._draw_connections()
+            except Exception as end_err:
+                print(f"DEBUG: Error al finalizar drag: {end_err}")
 
         def _on_node_click(e):
-            self.selected_node = node.node_id
-            self._update_inspector()
-            self._redraw_canvas()
+            try:
+                self.selected_node = node.node_id
+                self._update_inspector()
+                # NO llamar _redraw_canvas() aquí para evitar loops infinitos
+                # Solo actualizar inspector
+            except Exception as click_err:
+                print(f"DEBUG: Error en click: {click_err}")
         
         # Puertos de entrada
         input_port_controls = []
@@ -664,8 +679,13 @@ class AgentWorkspace:
         return container
     
     def _redraw_canvas(self):
-        """Actualizar solo los bordes de nodos seleccionados."""
+        """Actualizar solo los bordes de nodos seleccionados y redibujar conexiones."""
         try:
+            # IMPORTANTE: Solo redibujar conexiones si no estamos en medio de un drag
+            if self.dragging_node is None:
+                self._draw_connections()
+            
+            # Luego actualizar colores de nodos
             for control in self.canvas_stack.controls:
                 if hasattr(control, 'data') and isinstance(control.data, str) and control.data.startswith('node_'):
                     # Actualizar color de borde según si está seleccionado
@@ -680,7 +700,12 @@ class AgentWorkspace:
                             if hasattr(control.content.content, 'border'):
                                 control.content.content.border = ft.border.all(2, "#1f2937")
             
-            self.canvas_stack.update()
+            # Actualizar solo si hay algo que actualizar
+            if self.canvas_stack and hasattr(self.canvas_stack, 'update'):
+                try:
+                    self.canvas_stack.update()
+                except:
+                    pass
         except Exception as e:
             print(f"DEBUG: Error en _redraw_canvas: {e}")
 
@@ -2040,16 +2065,21 @@ class AgentWorkspace:
             if not hasattr(self, 'connections_stack') or self.connections_stack is None:
                 return
             
-            # Limpiar conexiones anteriores
+            # Si no hay conexiones, limpiar y salir
+            if not self.connections:
+                try:
+                    self.connections_stack.controls.clear()
+                except:
+                    pass
+                return
+            
+            # Limpiar conexiones anteriores - CON PROTECCIÓN
             try:
                 self.connections_stack.controls.clear()
             except:
                 pass
             
-            # Dibujar conexiones completadas - SOLO si hay conexiones
-            if not self.connections:
-                return
-                
+            # Dibujar conexiones completadas
             for conn_id, conn in self.connections.items():
                 try:
                     self._draw_connection_line(
@@ -2060,22 +2090,22 @@ class AgentWorkspace:
                         color="#00BCD4"
                     )
                 except Exception as line_error:
-                    print(f"DEBUG: Error dibujando línea individual: {line_error}")
+                    print(f"DEBUG: Error dibujando línea {conn_id}: {line_error}")
                     continue
             
-            # Actualizar el stack
+            # Actualizar el stack - CON PROTECCIÓN y timeout
             try:
-                if hasattr(self.connections_stack, 'update'):
+                if hasattr(self.connections_stack, 'update') and self.page:
                     self.connections_stack.update()
             except Exception as update_error:
-                print(f"DEBUG: Error actualizando stack: {update_error}")
+                print(f"DEBUG: Error actualizando connections_stack: {update_error}")
                 
         except Exception as e:
             print(f"DEBUG: Error en _draw_connections: {e}")
     
     def _draw_connection_line(self, source_node_id: str, source_port: str, 
                              target_node_id: str, target_port: str, color: str):
-        """Dibujar una línea de conexión curva entre dos puertos."""
+        """Dibujar línea de conexión usando puntos interpolados (visible y rápido)."""
         try:
             import math
             
@@ -2086,14 +2116,13 @@ class AgentWorkspace:
             source_node = self.nodes[source_node_id]
             target_node = self.nodes[target_node_id]
             
-            # Calcular posiciones de los puertos (centro del nodo) CON OFFSET
+            # Calcular posiciones de los puertos
             source_x = source_node.position["x"] + NODE_WIDTH / 2 + self.canvas_offset_x
             source_y = source_node.position["y"] + NODE_HEIGHT / 2 + self.canvas_offset_y
             
             target_x = target_node.position["x"] + NODE_WIDTH / 2 + self.canvas_offset_x
             target_y = target_node.position["y"] + NODE_HEIGHT / 2 + self.canvas_offset_y
             
-            # Calcular distancia
             dx = target_x - source_x
             dy = target_y - source_y
             distance = math.sqrt(dx**2 + dy**2)
@@ -2101,86 +2130,88 @@ class AgentWorkspace:
             if distance < 1:
                 return
             
-            # Crear una curva suave usando múltiples segmentos
-            # OPTIMIZADO: máximo 8 segmentos en lugar de 10+
-            segments = max(3, min(8, int(distance / 70)))  # Menos segmentos = mejor performance
+            # Crear POCOS puntos para evitar freeze (máximo 4-5 puntos)
+            num_points = max(2, min(4, int(distance / 80)))
             
-            # Puntos de control para la curva Bezier
-            ctrl1_x = source_x + dx / 3
-            ctrl1_y = source_y + dy / 4
-            ctrl2_x = source_x + 2 * dx / 3
-            ctrl2_y = source_y + 3 * dy / 4
-            
-            # Generar puntos en la curva Bezier cúbica
-            for i in range(segments):
-                t_start = i / segments
-                t_end = (i + 1) / segments
+            for i in range(num_points):
+                t = i / max(1, num_points - 1)
+                x = source_x + dx * t
+                y = source_y + dy * t
                 
-                # Fórmula de Bezier cúbica: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
-                def bezier_point(t):
-                    mt = 1 - t
-                    x = (mt**3 * source_x + 
-                         3 * mt**2 * t * ctrl1_x + 
-                         3 * mt * t**2 * ctrl2_x + 
-                         t**3 * target_x)
-                    y = (mt**3 * source_y + 
-                         3 * mt**2 * t * ctrl1_y + 
-                         3 * mt * t**2 * ctrl2_y + 
-                         t**3 * target_y)
-                    return x, y
-                
-                # Puntos de inicio y fin del segmento
-                x1, y1 = bezier_point(t_start)
-                x2, y2 = bezier_point(t_end)
-                
-                # Calcular ángulo y longitud del segmento
-                seg_dx = x2 - x1
-                seg_dy = y2 - y1
-                seg_length = math.sqrt(seg_dx**2 + seg_dy**2)
-                seg_angle = math.atan2(seg_dy, seg_dx)
-                
-                if seg_length > 0.1:
-                    # Crear línea para este segmento
-                    line = ft.Container(
-                        width=int(seg_length),
-                        height=3,
-                        bgcolor=color,
-                        border_radius=1,
-                        left=int(x1),
-                        top=int(y1 - 1.5),
-                        opacity=0.85,
-                        rotate=ft.Rotate(angle=seg_angle),
-                    )
-                    self.connections_stack.controls.append(line)
+                # Usar puntos pequeños (5x5)
+                point = ft.Container(
+                    width=5,
+                    height=5,
+                    bgcolor=color,
+                    left=int(x - 2.5),
+                    top=int(y - 2.5),
+                    border_radius=2,
+                    opacity=0.8,
+                )
+                self.connections_stack.controls.append(point)
             
         except Exception as e:
-            print(f"DEBUG: Error dibujando línea curva: {e}")
+            print(f"DEBUG: Error dibujando línea: {e}")
     
     def _execute_workflow(self, e):
         """Ejecutar el workflow."""
-        self.execution_log.clear()
-        self._log("Starting workflow execution...")
-        
         try:
-            flow_dict = self._serialize_flow()
+            self.execution_log.clear()
+            self._log("Starting workflow execution...")
             
-            validator = FlowValidator()
-            errors = validator.validate(flow_dict)
-            
-            if errors:
-                for error in errors:
-                    self._log(f"❌ {error}")
-                return
-            
-            executor = TopologicalExecutor()
-            results = executor.execute(flow_dict)
-            
-            for result in results:
-                self._log(f"✓ {result['node']}: {result.get('status', 'unknown')}")
-            
-            self._log("✓ Execution complete")
-        except Exception as ex:
-            self._log(f"❌ Error: {str(ex)}")
+            try:
+                flow_dict = self._serialize_flow()
+                
+                # Extraer nodes y connections para validación
+                # El validador espera NodeConfig como estructura, no diccionarios
+                nodes_for_validation = {}
+                connections = []
+                
+                for node_id, node in self.nodes.items():
+                    # El validador espera que nodes[node_id] sea el config (que tiene output_ports, input_ports)
+                    nodes_for_validation[node_id] = node.config
+                
+                for conn_id, conn in self.connections.items():
+                    connections.append({
+                        "source_node": conn.source_node,
+                        "source_port": conn.source_port,
+                        "target_node": conn.target_node,
+                        "target_port": conn.target_port
+                    })
+                
+                validator = FlowValidator()
+                success, msg = validator.validate(nodes_for_validation, connections)
+                
+                if not success:
+                    self._log(f"❌ Validation error: {msg}")
+                    return
+                
+                executor = TopologicalExecutor()
+                # executor.execute() es async y retorna Tuple[bool, str]
+                import asyncio
+                try:
+                    success_result, result_msg = asyncio.run(executor.execute(nodes_for_validation, connections))
+                    if success_result:
+                        self._log(f"✓ Execution result: {result_msg}")
+                    else:
+                        self._log(f"❌ Execution failed: {result_msg}")
+                except RuntimeError:
+                    # Si ya hay un event loop activo, usar diferente enfoque
+                    loop = asyncio.new_event_loop()
+                    success_result, result_msg = loop.run_until_complete(executor.execute(nodes_for_validation, connections))
+                    loop.close()
+                    if success_result:
+                        self._log(f"✓ Execution result: {result_msg}")
+                    else:
+                        self._log(f"❌ Execution failed: {result_msg}")
+                
+                self._log("✓ Execution complete")
+            except Exception as ex:
+                self._log(f"❌ Error: {str(ex)}")
+                import traceback
+                print(f"DEBUG: Traceback: {traceback.format_exc()}")
+        except Exception as outer_ex:
+            print(f"DEBUG: Error en _execute_workflow: {outer_ex}")
     
     def _serialize_flow(self) -> Dict:
         """Serializar el workflow actual."""
@@ -2208,17 +2239,277 @@ class AgentWorkspace:
         }
     
     def _save_workflow(self, e):
-        """Guardar el workflow."""
+        """Guardar el workflow con diálogo de formato."""
+        format_group = ft.RadioGroup(
+            content=ft.Column([
+                ft.Radio(value="buildbm", label=".BUILDBM (BuildBrain Format)"),
+                ft.Radio(value="json", label=".JSON (Standard JSON)")
+            ], spacing=10, tight=True),
+            value="buildbm"
+        )
+        
+        dialog = ft.AlertDialog(
+            title=ft.Text("Save Agent / Workflow"),
+            content=ft.Column([
+                ft.Text("Selecciona el formato de guardado:", size=12),
+                format_group
+            ], spacing=10, tight=True),
+            actions=[
+                ft.TextButton("Cancel", on_click=lambda e: self._close_dialog(dialog)),
+                ft.TextButton("Save", on_click=lambda e: self._save_agent_dialog(dialog, format_group))
+            ]
+        )
+        self.page.dialog = dialog
+        dialog.open = True
+        self.page.update()
+    
+    def _save_agent_dialog(self, dialog, format_group):
+        """Mostrar diálogo para guardar agente con nombre personalizado."""
+        self.current_dialog = dialog  # Guardar referencia
+        self.current_format_group = format_group  # Guardar referencia del grupo de formato
+        
+        name_field = ft.TextField(
+            label="Agent Name",
+            value=self.title_input.value or "Untitled",
+            width=300,
+            border_color="#1f2937",
+            bgcolor="#06070a",
+            color="#f8fafc"
+        )
+        
+        format_dropdown = ft.Dropdown(
+            label="Format",
+            value="buildbm",
+            options=[
+                ft.dropdown.Option(".buildbm - BuildBrain Format"),
+                ft.dropdown.Option(".json - Standard JSON")
+            ],
+            width=300
+        )
+        
+        save_dialog = ft.AlertDialog(
+            title=ft.Text("Save Agent"),
+            content=ft.Column([
+                name_field,
+                format_dropdown,
+                ft.Text("File will be saved to projects/ folder", size=10, color="#94a3b8")
+            ], spacing=12),
+            actions=[
+                ft.TextButton("Cancel", on_click=lambda e: self._close_dialog(save_dialog)),
+                ft.TextButton("Save", on_click=lambda e: self._perform_save_agent(name_field.value, format_dropdown.value, save_dialog))
+            ]
+        )
+        
+        dialog.open = False
+        self.page.update()
+        
+        self.page.dialog = save_dialog
+        save_dialog.open = True
+        self.page.update()
+    
+    def _perform_save_agent(self, agent_name: str, format_str: str, dialog):
+        """Guardar el agente en disco."""
         try:
-            flow_dict = self._serialize_flow()
+            if not agent_name.strip():
+                self._log("❌ Agent name cannot be empty")
+                return
+            
+            # Determinar extensión
+            extension = ".buildbm" if "buildbm" in format_str else ".json"
+            file_path = f"projects/{agent_name.replace(' ', '_')}{extension}"
+            
+            # Preparar datos del agente
+            agent_data = {
+                "name": agent_name,
+                "description": f"Agent created on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "nodes": self._serialize_nodes_for_export(),
+                "connections": self._serialize_connections_for_export(),
+                "variables": {}
+            }
+            
+            # Guardar
             persistence = FlowPersistence()
+            success, msg = persistence.save_agent(agent_data, file_path, format=extension.lstrip('.'))
             
-            filename = f"workflow_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            persistence.save(flow_dict, filename)
+            if success:
+                self._log(f"✓ Agent saved: {file_path}")
+            else:
+                self._log(f"❌ Save error: {msg}")
             
-            self._log(f"✓ Saved: {filename}")
+            self._close_dialog(dialog)
         except Exception as ex:
-            self._log(f"❌ Save error: {str(ex)}")
+            self._log(f"❌ Error: {str(ex)}")
+            self._close_dialog(dialog)
+    
+    def _load_workflow(self, e):
+        """Cargar un workflow/agente desde archivo."""
+        try:
+            # Usar el file picker de Flet si está disponible
+            def on_file_selected(e: ft.FilePickerResultEvent):
+                if e.files:
+                    file_path = e.files[0].path
+                    self._load_agent_from_file(file_path)
+            
+            file_picker = ft.FilePicker(on_result=on_file_selected)
+            self.page.overlay.append(file_picker)
+            self.page.update()
+            
+            # Abrir selector de archivos
+            file_picker.pick_files(
+                allowed_extensions=["json", "buildbm"],
+                dialog_title="Load Agent"
+            )
+        except Exception as ex:
+            self._log(f"❌ File picker error: {str(ex)}")
+    
+    def _load_agent_from_file(self, file_path: str):
+        """Cargar agente desde archivo específico."""
+        try:
+            self._log("⏳ Loading agent...")
+            
+            persistence = FlowPersistence()
+            success, agent_data, msg = persistence.load_agent(file_path)
+            
+            if not success:
+                self._log(f"❌ Load error: {msg}")
+                return
+            
+            # Limpiar canvas actual
+            self.nodes.clear()
+            self.connections.clear()
+            self.canvas_stack.controls.clear()
+            self.selected_node = None
+            self.node_counter = 0
+            
+            self._log(f"📥 Loading {len(agent_data.get('nodes', {}))} nodes...")
+            
+            # Cargar nodos
+            nodes_data = agent_data.get("nodes", {})
+            for node_id, node_info in nodes_data.items():
+                self._restore_node_from_data(node_id, node_info)
+            
+            self._log(f"🔗 Connecting {len(agent_data.get('connections', []))} connections...")
+            
+            # Cargar conexiones
+            connections_data = agent_data.get("connections", [])
+            for conn_info in connections_data:
+                self._restore_connection_from_data(conn_info)
+            
+            # Actualizar titulo
+            self.title_input.value = agent_data.get("name", "Loaded Agent")
+            
+            # Actualizar UI - sin redraw para evitar loops
+            self._refresh_left_panel()
+            if self.nodes:
+                self.selected_node = list(self.nodes.keys())[0]
+            
+            # NO llamar _draw_connections() aquí - causa freeze
+            # Las conexiones se dibujarán bajo demanda cuando el usuario interactúe
+            
+            self._log(f"✓ Loaded agent: {agent_data.get('name', 'Unknown')}")
+        except Exception as ex:
+            self._log(f"❌ Error loading agent: {str(ex)}")
+            import traceback
+            traceback.print_exc()
+    
+    def _restore_node_from_data(self, node_id: str, node_data: Dict[str, Any]):
+        """Restaurar un nodo desde datos guardados."""
+        try:
+            node_type = node_data.get("type")
+            x = node_data.get("position", {}).get("x", 100)
+            y = node_data.get("position", {}).get("y", 100)
+            settings = node_data.get("settings", {})
+            
+            # Buscar el NodeConfig correspondiente
+            node_config = self._find_node_config_by_type(node_type)
+            if not node_config:
+                self._log(f"⚠ Node type '{node_type}' not found")
+                return
+            
+            # Crear instancia
+            instance = NodeInstance(node_id, node_config, x, y)
+            instance.settings.update(settings)
+            self.nodes[node_id] = instance
+            
+            # IMPORTANTE: Agregar nodo al canvas UI
+            self._add_node_to_canvas(instance)
+            
+            # Actualizar contador
+            try:
+                numeric_id = int(node_id.split('_')[-1])
+                self.node_counter = max(self.node_counter, numeric_id + 1)
+            except:
+                pass
+        except Exception as ex:
+            self._log(f"⚠ Error restoring node {node_id}: {str(ex)}")
+    
+    def _restore_connection_from_data(self, conn_data: Dict[str, Any]):
+        """Restaurar una conexión desde datos guardados."""
+        try:
+            source_node = conn_data.get("source_node")
+            target_node = conn_data.get("target_node")
+            source_port = conn_data.get("source_port")
+            target_port = conn_data.get("target_port")
+            
+            # Verificar que existan los nodos
+            if source_node not in self.nodes or target_node not in self.nodes:
+                self._log(f"⚠ Connection skipped: node {source_node} or {target_node} not found")
+                return
+            
+            # Verificar que los puertos existan en los nodos
+            target_node_instance = self.nodes[target_node]
+            if target_port not in target_node_instance.input_ports:
+                self._log(f"⚠ Connection skipped: port '{target_port}' not in {target_node}. Available: {target_node_instance.input_ports}")
+                return
+            
+            source_node_instance = self.nodes[source_node]
+            if source_port not in source_node_instance.output_ports:
+                self._log(f"⚠ Connection skipped: port '{source_port}' not in {source_node}. Available: {source_node_instance.output_ports}")
+                return
+            
+            conn_id = f"conn_{source_node}_{source_port}_{target_node}_{target_port}"
+            conn = Connection(conn_id, source_node, source_port, target_node, target_port)
+            self.connections[conn_id] = conn
+        except Exception as ex:
+            self._log(f"⚠ Error restoring connection: {str(ex)}")
+    
+    def _find_node_config_by_type(self, node_type: str) -> Optional[NodeConfig]:
+        """Buscar NodeConfig por tipo."""
+        for category_nodes in self.node_catalog.values():
+            for node_config in category_nodes:
+                if node_config.node_type == node_type:
+                    return node_config
+        return None
+    
+    def _serialize_nodes_for_export(self) -> Dict[str, Any]:
+        """Serializar todos los nodos para exportación."""
+        result = {}
+        for node_id, node_instance in self.nodes.items():
+            result[node_id] = {
+                "type": node_instance.config.node_type,
+                "display_name": node_instance.config.display_name,
+                "category": node_instance.config.category,
+                "position": node_instance.position,
+                "settings": node_instance.settings
+            }
+        return result
+    
+    def _serialize_connections_for_export(self) -> List[Dict[str, Any]]:
+        """Serializar todas las conexiones para exportación."""
+        result = []
+        for conn in self.connections.values():
+            result.append({
+                "source_node": conn.source_node,
+                "source_port": conn.source_port,
+                "target_node": conn.target_node,
+                "target_port": conn.target_port
+            })
+        return result
+    
+    def _close_dialog(self, dialog):
+        """Cerrar un diálogo."""
+        dialog.open = False
+        self.page.update()
     
     def _test_database_connection(self, node_id: str):
         """Testear la conexión a la base de datos."""

@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "name": "Búsqueda de Documentos",
+  "description": "Flujo de búsqueda: Query → Vector DB → AI Formatter → Dashboard",
+  "nodes": {
+    "node_0": {
+      "type": "manual_trigger",
+      "display_name": "Búsqueda Input",
+      "category": "INPUT",
+      "position": {
+        "x": 50,
+        "y": 100
+      },
+      "settings": {
+        "execution_name": "Búsqueda de documentos",
+        "input_variables": [
+          "search_query"
+        ],
+        "raw_json_input": "{\n  \"search_query\": \"política de privacidad\"\n}",
+        "mode": "test",
+        "variables": {
+          "search_query": "política de privacidad"
+        }
+      }
+    },
+    "node_1": {
+      "type": "vector_store_extended",
+      "display_name": "Vector Search",
+      "category": "AI",
+      "position": {
+        "x": 350,
+        "y": 100
+      },
+      "settings": {
+        "db": "pinecone",
+        "index": "documents",
+        "embedding_model": "text-embedding-3-small",
+        "top_k": 5,
+        "threshold": 0.7
+      }
+    },
+    "node_2": {
+      "type": "llm",
+      "display_name": "Procesar Resultados",
+      "category": "AI",
+      "position": {
+        "x": 650,
+        "y": 100
+      },
+      "settings": {
+        "model": "claude",
+        "prompt": "Eres un asistente que resume resultados de búsqueda de documentos.\n\nResultados encontrados:\n{{ node_1.results }}\n\nGenera un resumen estructurado con:\n- titulo\n- resumen\n- relevancia\n\nRespuesta JSON:",
+        "temperature": 0.6,
+        "max_tokens": 600
+      }
+    },
+    "node_3": {
+      "type": "dashboard_output",
+      "display_name": "Resultados",
+      "category": "OUTPUT",
+      "position": {
+        "x": 950,
+        "y": 100
+      },
+      "settings": {
+        "title": "Resultados de Búsqueda",
+        "display_mode": "json",
+        "data_source": "{{ node_2.response }}",
+        "widget_id": "search_results_widget",
+        "preview_data": []
+      }
+    }
+  },
+  "connections": [
+    {
+      "source_node": "node_0",
+      "source_port": "output",
+      "target_node": "node_1",
+      "target_port": "query"
+    },
+    {
+      "source_node": "node_1",
+      "source_port": "results",
+      "target_node": "node_2",
+      "target_port": "input"
+    },
+    {
+      "source_node": "node_2",
+      "source_port": "response",
+      "target_node": "node_3",
+      "target_port": "input"
+    }
+  ],
+  "variables": {
+    "search_query": "política de privacidad",
+    "top_results": 5
+  },
+  "metadata": {
+    "created_at": "2025-12-14T00:00:00",
+    "updated_at": "2025-12-14T00:00:00"
+  }
+}

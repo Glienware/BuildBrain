@@ -241,3 +241,75 @@ class FlowPersistence:
             return FlowSerializer.from_json(json_content)
         except Exception as e:
             return False, None, str(e)
+    
+    def save_agent(self, agent_data: Dict[str, Any], file_path: str, format: str = "buildbm") -> Tuple[bool, str]:
+        """
+        Guarda un agente (estructura de nodos y conexiones) en disco.
+        
+        Args:
+            agent_data: Dict con 'nodes' y 'connections'
+            file_path: Ruta del archivo donde guardar
+            format: 'json' o 'buildbm' (JSON con extensión .buildbm)
+        """
+        try:
+            export_file = Path(file_path)
+            export_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Asegurar que la extensión sea correcta
+            if format == "buildbm" and not file_path.endswith(".buildbm"):
+                file_path = str(export_file.with_suffix(".buildbm"))
+                export_file = Path(file_path)
+            elif format == "json" and not file_path.endswith(".json"):
+                file_path = str(export_file.with_suffix(".json"))
+                export_file = Path(file_path)
+            
+            # Estructura del agente
+            agent_structure = {
+                "version": "1.0",
+                "name": agent_data.get("name", "Agent"),
+                "description": agent_data.get("description", ""),
+                "nodes": agent_data.get("nodes", {}),
+                "connections": agent_data.get("connections", []),
+                "variables": agent_data.get("variables", {}),
+                "metadata": {
+                    "created_at": agent_data.get("created_at", datetime.now().isoformat()),
+                    "updated_at": datetime.now().isoformat()
+                }
+            }
+            
+            json_content = json.dumps(agent_structure, indent=2, ensure_ascii=False)
+            export_file.write_text(json_content, encoding="utf-8")
+            
+            return True, f"Agente guardado en {export_file}"
+        except Exception as e:
+            return False, f"Error al guardar agente: {str(e)}"
+    
+    def load_agent(self, file_path: str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Carga un agente desde archivo JSON o .BUILDBM.
+        
+        Returns:
+            (success, agent_data, message)
+        """
+        try:
+            agent_file = Path(file_path)
+            
+            if not agent_file.exists():
+                return False, None, f"Archivo {file_path} no encontrado"
+            
+            # Soporta .json y .buildbm
+            if not agent_file.suffix in [".json", ".buildbm"]:
+                return False, None, f"Formato no soportado. Use .json o .buildbm"
+            
+            json_content = agent_file.read_text(encoding="utf-8")
+            agent_data = json.loads(json_content)
+            
+            # Validar estructura mínima
+            if "nodes" not in agent_data or "connections" not in agent_data:
+                return False, None, "Estructura de agente inválida. Se requieren 'nodes' y 'connections'"
+            
+            return True, agent_data, f"Agente cargado desde {file_path}"
+        except json.JSONDecodeError as e:
+            return False, None, f"Archivo JSON inválido: {str(e)}"
+        except Exception as e:
+            return False, None, f"Error al cargar agente: {str(e)}"

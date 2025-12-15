@@ -1,0 +1,104 @@
+{
+  "version": "1.0",
+  "name": "Análisis de Sentimiento",
+  "description": "Flujo: Entrada de Texto → Análisis Sentimiento → Clasificación → Resultado",
+  "nodes": {
+    "node_0": {
+      "type": "manual_trigger",
+      "display_name": "Texto Input",
+      "category": "INPUT",
+      "position": {
+        "x": 50,
+        "y": 100
+      },
+      "settings": {
+        "execution_name": "Análisis de Sentimiento",
+        "input_variables": [
+          "texto_usuario"
+        ],
+        "raw_json_input": "{\n  \"texto_usuario\": \"Me encanta el servicio, excelente atención\"\n}",
+        "mode": "test",
+        "variables": {
+          "texto_usuario": "Me encanta el servicio, excelente atención"
+        }
+      }
+    },
+    "node_1": {
+      "type": "llm",
+      "display_name": "Analizador Sentimiento",
+      "category": "AI",
+      "position": {
+        "x": 350,
+        "y": 100
+      },
+      "settings": {
+        "model": "claude",
+        "prompt": "Eres un especialista en análisis de sentimientos.\n\nTexto a analizar:\n{{ node_0.texto_usuario }}\n\nAnaliza el texto y devuelve JSON con:\n- sentimiento (positivo/negativo/neutral)\n- confianza (0-100)\n- palabras_clave\n- tono\n\nRespuesta JSON:",
+        "temperature": 0.5,
+        "max_tokens": 400
+      }
+    },
+    "node_2": {
+      "type": "if_else",
+      "display_name": "Clasificación",
+      "category": "LOGIC",
+      "position": {
+        "x": 650,
+        "y": 100
+      },
+      "settings": {
+        "mode": "simple",
+        "conditions": [
+          {
+            "field": "sentimiento",
+            "operator": "=",
+            "value": "positivo"
+          }
+        ],
+        "combine_operator": "AND",
+        "true_label": "Positivo",
+        "false_label": "Negativo/Neutral"
+      }
+    },
+    "node_3": {
+      "type": "log_output",
+      "display_name": "Guardar Resultado",
+      "category": "OUTPUT",
+      "position": {
+        "x": 950,
+        "y": 100
+      },
+      "settings": {
+        "level": "info",
+        "message": "Análisis completado"
+      }
+    }
+  },
+  "connections": [
+    {
+      "source_node": "node_0",
+      "source_port": "output",
+      "target_node": "node_1",
+      "target_port": "input"
+    },
+    {
+      "source_node": "node_1",
+      "source_port": "response",
+      "target_node": "node_2",
+      "target_port": "input"
+    },
+    {
+      "source_node": "node_2",
+      "source_port": "true",
+      "target_node": "node_3",
+      "target_port": "input"
+    }
+  ],
+  "variables": {
+    "texto": "Me encanta el servicio, excelente atención"
+  },
+  "metadata": {
+    "created_at": "2025-12-14T00:00:00",
+    "updated_at": "2025-12-14T00:00:00"
+  }
+}

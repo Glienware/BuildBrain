@@ -1,0 +1,284 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                          🎉 BUILDBRAINTM                                   ║
+║              Flujos Pre-Configurados Listos para Usar                       ║
+║                          RESUMEN EJECUTIVO                                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📦 ARCHIVOS CREADOS
+═════════════════════════════════════════════════════════════════════════════
+
+1. ✅ FLUJOS (.BUILDBM) - En carpeta projects/
+   ├─ Consulta_Usuarios_Deuda.buildbm (4.4 KB)
+   │  └─ Flujo completo: Usuario → LLM → DB → LLM → Dashboard
+   │  └─ 5 nodos pre-configurados
+   │  └─ Ideal para consultas inteligentes a BD
+   │
+   ├─ Analisis_Sentimiento.buildbm (2.8 KB)
+   │  └─ Analizar emociones en textos
+   │  └─ 4 nodos pre-configurados
+   │  └─ Con ramificación If/Else
+   │
+   └─ Busqueda_Documentos.buildbm (2.7 KB)
+      └─ Búsqueda vectorial semántica
+      └─ 4 nodos con Pinecone
+      └─ LLM resume resultados
+
+2. ✅ DOCUMENTACIÓN
+   ├─ FLUJOS_DISPONIBLES.md
+   │  └─ Descripción detallada de cada flujo
+   │  └─ Diagramas ASCII de arquitectura
+   │  └─ Comparativa de flujos
+   │  └─ Casos de uso reales
+   │
+   ├─ TUTORIAL_FLUJOS.md
+   │  └─ Guía paso a paso (RECOMENDADO)
+   │  └─ Cómo cargar, ejecutar y modificar
+   │  └─ Solución de problemas
+   │  └─ Próximos pasos
+   │
+   ├─ projects/README.md
+   │  └─ Rápida referencia
+   │  └─ Estructura de archivos
+   │  └─ Plantillas para crear nuevos flujos
+   │
+   └─ examples_workflows.py
+      └─ Script Python para listar flujos
+      └─ Validar estructura
+      └─ Inspeccionar nodos
+
+═════════════════════════════════════════════════════════════════════════════
+
+🚀 INICIO RÁPIDO (3 Pasos)
+═════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Abre la aplicación
+   $ python main.py
+
+PASO 2: Click en "Load Agent"
+   Selecciona: Consulta_Usuarios_Deuda.buildbm
+   → Se cargan automáticamente 5 nodos
+
+PASO 3: Click en "Execute"
+   → El flujo se ejecuta en ~5-7 segundos
+   → Ver resultados en Dashboard
+
+✓ ¡Listo! El flujo funciona completamente.
+
+═════════════════════════════════════════════════════════════════════════════
+
+📋 QUÉ INCLUYE CADA FLUJO
+═════════════════════════════════════════════════════════════════════════════
+
+Flujo 1: CONSULTA USUARIOS CON DEUDA
+─────────────────────────────────────────────────────────────────────────────
+Input:    "Usuarios que deben más de 300"
+Process:  User → LLM (interpreta) → DB (query) → LLM (formatea) → UI
+Output:   Tabla con usuarios y deudas
+Tiempo:   5-7 segundos
+Nodos:    5
+
+  1. Manual Trigger     ← Usuario envía consulta
+  2. Interpretar (LLM)  ← IA entiende qué SQL ejecutar
+  3. Database Query     ← Ejecuta SELECT en MySQL
+  4. Formatear (LLM)    ← IA resume resultados
+  5. Dashboard          ← Muestra tabla de resultados
+
+Flujo 2: ANÁLISIS DE SENTIMIENTO
+─────────────────────────────────────────────────────────────────────────────
+Input:    "Me encanta el servicio, excelente atención"
+Process:  Text → LLM (analiza) → If/Else (clasifica) → Log
+Output:   "Positivo" o "Negativo/Neutral"
+Tiempo:   2-4 segundos
+Nodos:    4
+
+  1. Manual Trigger         ← Usuario envía texto
+  2. Analizador (LLM)       ← Analiza sentimiento
+  3. Clasificación (If/Else)← Ramifica según sentimiento
+  4. Log Output             ← Guarda resultado
+
+Flujo 3: BÚSQUEDA DE DOCUMENTOS
+─────────────────────────────────────────────────────────────────────────────
+Input:    "Política de privacidad"
+Process:  Query → Vector DB (busca) → LLM (resume) → Dashboard
+Output:   JSON con documentos similares
+Tiempo:   3-5 segundos
+Nodos:    4
+
+  1. Manual Trigger       ← Usuario hace búsqueda
+  2. Vector Search        ← Busca en Pinecone
+  3. Procesar (LLM)       ← Resume documentos
+  4. Dashboard            ← Muestra JSON
+
+═════════════════════════════════════════════════════════════════════════════
+
+💾 CÓMO CREAR TUS PROPIOS FLUJOS
+═════════════════════════════════════════════════════════════════════════════
+
+Opción A: EDITAR UN FLUJO EXISTENTE
+────────────────────────────────────
+1. Load Agent → Selecciona cualquier .buildbm
+2. Modifica nodos en el Inspector (panel derecho)
+3. Click "Execute" para probar cambios
+4. Click "Save Agent" → Guarda con nuevo nombre
+
+Opción B: CREAR DESDE CERO
+──────────────────────────
+1. Click "Add Node" → Selecciona tipo
+2. Arrastra nodos al canvas
+3. Conecta con drag (output → input)
+4. Configura cada nodo
+5. Click "Execute"
+6. Click "Save Agent" → Guarda tu flujo
+
+═════════════════════════════════════════════════════════════════════════════
+
+📊 REQUISITOS
+═════════════════════════════════════════════════════════════════════════════
+
+Para Consulta de Deuda:
+  ✓ MySQL server corriendo (localhost:3306)
+  ✓ BD: automation_test
+  ✓ Tabla: usuarios
+  ✓ Usuarios con deuda > 300
+
+Para Análisis de Sentimiento:
+  ✓ OpenAI API key (o Claude via OpenRouter)
+
+Para Búsqueda de Documentos:
+  ✓ Pinecone API key
+  ✓ Índice creado en Pinecone
+  ✓ Documentos cargados
+
+═════════════════════════════════════════════════════════════════════════════
+
+🎯 CASOS DE USO TÍPICOS
+═════════════════════════════════════════════════════════════════════════════
+
+Centro de Atención al Cliente
+  Usuario → Chatbot → BD (consulta cliente) → Respuesta personalizada
+
+Análisis de Reviews
+  Review ingresado → Sentimiento detectado → Clasificación automática
+
+Soporte Inteligente
+  Pregunta cliente → KB search (vector) → Respuesta + FAQ relacionada
+
+Reportes Dinámicos
+  Solicitud usuario → LLM → Query múltiples tablas → Dashboard con datos
+
+Data Pipeline
+  Ingesta → Transformación → Validación → DB → Notificación
+
+═════════════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTACIÓN COMPLETA
+═════════════════════════════════════════════════════════════════════════════
+
+Lectura Recomendada (orden):
+
+1. TUTORIAL_FLUJOS.md (15-20 min)
+   → Comienza aquí si es tu primer uso
+   → Paso a paso con capturas
+   → Cómo ejecutar cada flujo
+
+2. FLUJOS_DISPONIBLES.md (10-15 min)
+   → Entender arquitectura de cada flujo
+   → Diagramas ASCII
+   → Configuración detallada
+
+3. examples_workflows.py (referencia)
+   → Script Python para automatización
+   → Cómo cargar/listar flujos programáticamente
+
+4. projects/README.md (referencia rápida)
+   → Plantillas para nuevos flujos
+   → Tipos de nodos disponibles
+   → Troubleshooting
+
+═════════════════════════════════════════════════════════════════════════════
+
+🔑 CARACTERÍSTICAS PRINCIPALES
+═════════════════════════════════════════════════════════════════════════════
+
+✅ Guardar/Cargar Flujos
+   → Formato .BUILDBM (propietario)
+   → Formato .JSON (estándar)
+   → Se guarda en projects/
+
+✅ 54 Tipos de Nodos
+   → AI/LLM (Claude, OpenAI, OpenRouter)
+   → Database (MySQL, PostgreSQL, SQLite)
+   → Logic (If/Else, Loops)
+   → Integration (HTTP, Webhooks)
+   → Output (Dashboard, API, Log)
+
+✅ Validación de Flujos
+   → Detecta ciclos
+   → Valida tipos de datos
+   → Verifica conexiones
+
+✅ Ejecución Topológica
+   → Ejecuta nodos en orden correcto
+   → Maneja dependencias automáticamente
+
+═════════════════════════════════════════════════════════════════════════════
+
+📞 AYUDA Y SOPORTE
+═════════════════════════════════════════════════════════════════════════════
+
+Problema: "Connection refused"
+Solución: Inicia MySQL → net start MySQL80
+
+Problema: "API key invalid"
+Solución: Configura en Inspector → node → settings
+
+Problema: "Table not found"
+Solución: Crea BD y tabla → Ver TUTORIAL_FLUJOS.md
+
+Problema: "Database not found"
+Solución: CREATE DATABASE automation_test;
+
+═════════════════════════════════════════════════════════════════════════════
+
+🎓 PRÓXIMOS PASOS
+═════════════════════════════════════════════════════════════════════════════
+
+Nivel 1: Usuario (Uso Básico)
+  □ Cargar flujos pre-configurados
+  □ Cambiar parámetros simples
+  □ Ejecutar y ver resultados
+
+Nivel 2: Constructor (Crear Flujos)
+  □ Crear flujos desde cero
+  □ Conectar nodos
+  □ Configurar inspectors
+  □ Guardar como .buildbm
+
+Nivel 3: Integrador (Sistematización)
+  □ Conectar APIs externas
+  □ Procesar datos complejos
+  □ Automatizar procesos
+  □ Compartir flujos con equipo
+
+═════════════════════════════════════════════════════════════════════════════
+
+🚀 ¡COMIENZA AHORA!
+═════════════════════════════════════════════════════════════════════════════
+
+1. Abre BuildBrain:        python main.py
+2. Lee TUTORIAL_FLUJOS.md  (más detallado)
+3. Click "Load Agent"      
+4. Selecciona un .buildbm
+5. Click "Execute"
+6. ¡Disfruta los resultados!
+
+═════════════════════════════════════════════════════════════════════════════
+
+Versión: 1.0
+Fecha: Diciembre 2025
+BuildBrain © 2025
+
+¿Preguntas? Consulta la documentación o ejecuta:
+  python examples_workflows.py
+
+✨ Felicidades por usar BuildBrain ✨
