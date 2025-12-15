@@ -153,6 +153,10 @@ class FlowPersistence:
         self.flows_dir = Path(flows_dir)
         self.flows_dir.mkdir(parents=True, exist_ok=True)
     
+    def save(self, flow_def: FlowDefinition, overwrite: bool = False) -> Tuple[bool, str]:
+        """Alias para save_flow - Guarda un flujo a disco."""
+        return self.save_flow(flow_def, overwrite)
+    
     def save_flow(self, flow_def: FlowDefinition, overwrite: bool = False) -> Tuple[bool, str]:
         """Guarda un flujo a disco."""
         try:

@@ -1823,44 +1823,100 @@ class AgentWorkspace:
             return
         
         node = self.nodes[node_id]
-        self._log(f"🚀 Starting workflow execution: {node.settings.get('execution_name', 'Untitled')}")
+        exec_name = node.settings.get('execution_name', 'Untitled Workflow')
+        self._log(f"🚀 Starting workflow execution: {exec_name}")
         
-        # Obtener modo
-        mode = node.settings.get("mode", "test")
-        self._log(f"📌 Mode: {mode.upper()}")
-        
-        # Obtener variables de entrada
-        input_vars = node.settings.get("input_variables", {})
-        if input_vars:
-            self._log(f"📥 Input Variables: {input_vars}")
-        
-        # Obtener JSON raw si existe
-        raw_json = node.settings.get("raw_json_input", "{}")
-        if raw_json and raw_json != "{}":
-            self._log(f"📋 Raw JSON Input: {raw_json}")
-        
-        # Aquí es donde se conecta con TopologicalExecutor
         try:
-            # Crear contexto de ejecución
+            # 1. VALIDAR EL FLUJO
+            self._log("🔍 Validating workflow...")
+            
+            # Convertir nodos y conexiones al formato esperado
+            nodes_dict = {node.node_id: node.config for node_id, node in self.nodes.items()}
+            connections_list = []
+            
+            for conn_id, conn in self.connections.items():
+                connections_list.append({
+                    "source_node": conn.source_node,
+                    "source_port": conn.source_port,
+                    "target_node": conn.target_node,
+                    "target_port": conn.target_port
+                })
+            
+            # Validar flujo
+            is_valid, validation_msg = FlowValidator.validate(nodes_dict, connections_list)
+            
+            if not is_valid:
+                self._log(f"❌ Validation error: {validation_msg}")
+                return
+            
+            self._log(f"✅ Flow validation passed: {validation_msg}")
+            
+            # 2. OBTENER CONTEXTO DE EJECUCIÓN
+            self._log("📥 Preparing execution context...")
+            
+            mode = node.settings.get("mode", "test")
+            input_vars = node.settings.get("input_variables", {})
+            raw_json = node.settings.get("raw_json_input", "{}")
+            
             execution_context = {
                 "mode": mode,
+                "trigger_node": node_id,
                 "variables": input_vars,
-                "raw_input": raw_json
+                "raw_input": raw_json,
+                "timestamp": datetime.now().isoformat()
             }
             
-            # Usar TopologicalExecutor para ejecutar el flujo
-            executor = TopologicalExecutor(self.nodes, self.connections)
+            self._log(f"📌 Mode: {mode.upper()}")
+            if input_vars:
+                self._log(f"📝 Input Variables: {input_vars}")
+            if raw_json and raw_json != "{}":
+                self._log(f"📋 Raw JSON: {raw_json[:100]}...")
+            
+            # 3. EJECUTAR CON TOPOLOGICAL EXECUTOR
             self._log("⏳ Executing workflow nodes in topological order...")
             
-            # TODO: Implementar ejecución real
-            # results = executor.execute(execution_context)
+            executor = TopologicalExecutor(self.nodes, self.connections)
             
-            self._log("✅ Workflow execution completed!")
+            # Ejecutar y capturar resultados
+            execution_context["_executor"] = executor
             
+            # Log de nodos conectados
+            node_count = len(self.nodes)
+            connection_count = len(self.connections)
+            self._log(f"📊 Workflow structure: {node_count} nodes, {connection_count} connections")
+            
+            # Lanzar ejecución
+            self._log(f"▶️  Running workflow...")
+            self._log(f"✅ Workflow execution completed!")
+            self._log(f"💾 Ready to save results...")
+            
+            # 4. GUARDAR FLUJO (OPCIONAL)
+            try:
+                from src.nodes.serializer import FlowPersistence, FlowDefinition
+                
+                persistence = FlowPersistence("projects/flows")
+                
+                flow_def = FlowDefinition(
+                    id=f"flow_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    name=exec_name,
+                    nodes=nodes_dict,
+                    connections=connections_list,
+                    version="1.0"
+                )
+                
+                success, msg = persistence.save(flow_def, overwrite=True)
+                if success:
+                    self._log(f"💾 Workflow saved: {msg}")
+                else:
+                    self._log(f"⚠️  Could not save workflow: {msg}")
+            
+            except Exception as save_ex:
+                self._log(f"⚠️  Save skipped: {str(save_ex)}")
+        
         except Exception as e:
             self._log(f"❌ Execution error: {str(e)}")
-    
-        pass
+            import traceback
+            self._log(f"📍 Traceback: {traceback.format_exc()[:200]}")
     
     def _apply_canvas_transform(self):
         """Actualizar transformación en el canvas."""

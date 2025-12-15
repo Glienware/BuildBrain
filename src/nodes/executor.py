@@ -118,6 +118,26 @@ class FlowValidator:
     """Valida flujos antes de ejecutarlos."""
     
     @staticmethod
+    def validate(nodes: Dict[str, NodeConfig], connections: List[Dict[str, Any]]) -> Tuple[bool, str]:
+        """Valida un flujo completo."""
+        # Validar conexiones
+        valid, msg = FlowValidator.validate_connections(nodes, connections)
+        if not valid:
+            return False, msg
+        
+        # Validar tipos
+        valid, msg = FlowValidator.validate_types(nodes, connections)
+        if not valid:
+            return False, msg
+        
+        # Validar ciclos
+        has_cycle, msg = FlowValidator.has_cycles(nodes, connections)
+        if has_cycle:
+            return False, msg
+        
+        return True, "Flow is valid"
+    
+    @staticmethod
     def validate_connections(nodes: Dict[str, NodeConfig], connections: List[Dict[str, Any]]) -> Tuple[bool, str]:
         """Valida que las conexiones sean válidas."""
         for conn in connections:
